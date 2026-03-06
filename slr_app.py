@@ -518,6 +518,83 @@ hr { border-color: var(--border) !important; margin: 0.75rem 0 !important; }
 
 /* ── Keyword tags ── */
 .kw-tag { display: inline-block; font-family: var(--fM); font-size: 0.58rem; color: var(--mist); background: var(--panel2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 2px; margin: 2px; }
+
+/* ── Text Analysis (Module 11) ── */
+.topic-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.5rem;
+  border-left: 3px solid var(--blue);
+}
+.topic-card:nth-child(2) { border-left-color: var(--accent); }
+.topic-card:nth-child(3) { border-left-color: var(--green); }
+.topic-card:nth-child(4) { border-left-color: #9B7FCC; }
+.topic-card:nth-child(5) { border-left-color: var(--red); }
+.topic-label {
+  font-family: var(--fM);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mist);
+  margin-bottom: 0.5rem;
+}
+.topic-words { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+.tw {
+  font-family: var(--fM);
+  font-size: 0.68rem;
+  padding: 3px 10px;
+  border-radius: 2px;
+  border: 1px solid var(--border2);
+  color: var(--snow2);
+  background: var(--panel2);
+}
+.tw.w1 { font-size: 0.82rem; color: var(--snow); background: var(--panel2); border-color: var(--border2); font-weight: 700; }
+.tw.w2 { font-size: 0.74rem; color: var(--snow2); }
+.tw.w3 { font-size: 0.66rem; color: var(--mist2); }
+.topic-papers { font-family: var(--fM); font-size: 0.58rem; color: var(--mist); }
+
+.tfidf-bar-wrap { margin-bottom: 0.35rem; }
+.tfidf-term {
+  font-family: var(--fM);
+  font-size: 0.7rem;
+  color: var(--snow2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.18rem;
+}
+.tfidf-bar-outer { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.tfidf-bar-inner { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+.cooc-pair {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.45rem 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-bottom: 0.3rem;
+}
+.cooc-terms { font-family: var(--fM); font-size: 0.7rem; color: var(--snow2); }
+.cooc-terms span { color: var(--accent); }
+.cooc-count { font-family: var(--fD); font-size: 1rem; font-weight: 600; color: var(--mist); }
+
+.cluster-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 0.4rem;
+}
+.cluster-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+.cluster-label { font-family: var(--fM); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--mist); }
+.cluster-n { font-family: var(--fD); font-size: 1.1rem; font-weight: 600; color: var(--accent); }
+.cluster-keywords { font-family: var(--fS); font-size: 0.75rem; color: var(--mist2); margin-bottom: 0.5rem; line-height: 1.6; }
+.cluster-papers { font-family: var(--fM); font-size: 0.6rem; color: var(--border2); }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -719,11 +796,13 @@ with st.sidebar:
 
     NAV = [("01","Import"),("02","Deduplicate"),("03","Title Screen"),("04","Abstract Screen"),
            ("05","Full Text"),("06","Data Extraction"),("07","Quality Assess."),
-           ("08","Evidence Synthesis"),("09","PRISMA Diagram"),("10","Export")]
+           ("08","Evidence Synthesis"),("09","PRISMA Diagram"),("10","Export"),
+           ("11","Text Analysis ✦")]
     CNTS = [f"{n_total} records" if n_total else "empty", "",
             f"{len([p for p in papers if not p.get('title_decision')])} pending",
             f"{len([p for p in ti() if not p.get('abstract_decision')])} pending",
-            f"{n_ti} papers", f"{n_ab} eligible", f"{n_ex} ready", "", "", ""]
+            f"{n_ti} papers", f"{n_ab} eligible", f"{n_ex} ready", "", "", "",
+            f"{n_total} docs" if n_total else ""]
 
     for i,(step,label) in enumerate(NAV):
         cnt = CNTS[i]
@@ -1453,3 +1532,412 @@ Auto-generated — adapt before submission.
         ])
         st.dataframe(sum_df, use_container_width=True, hide_index=True)
         st.caption("Bahas Kebijakan (2025). SLR·Studio. bahaskebijakan.id")
+
+
+# ══════════════════════════════════════════════════════════════
+# PAGE 10 — TEXT ANALYSIS  (LDA · TF-IDF · Co-occurrence · Clustering)
+# Pure Python/sklearn — no extra dependencies beyond requirements.txt
+# ══════════════════════════════════════════════════════════════
+elif tab == 10:
+    pg("Module 11", "Text ", "Analysis",
+       "Unsupervised text mining on titles + abstracts: LDA topic modelling, TF-IDF keyword extraction, co-occurrence networks, and similarity clustering.")
+
+    if not papers:
+        empty_st(); st.stop()
+
+    # ── collect corpus ──────────────────────────────────────────
+    corpus_papers = papers  # run on ALL loaded records
+
+    # Build text per paper (title + abstract + keywords)
+    def build_text(p):
+        parts = [p.get("title",""), p.get("abstract",""), p.get("keywords","")]
+        return " ".join(x for x in parts if x).lower()
+
+    texts = [build_text(p) for p in corpus_papers]
+    ids   = [p["id"]       for p in corpus_papers]
+    titles = [p.get("title","")[:60] for p in corpus_papers]
+
+    n_docs = len([t for t in texts if len(t.strip()) > 20])
+
+    mc_row([("Documents in Corpus", len(corpus_papers),""),
+            ("With Abstract", len([p for p in corpus_papers if p.get("abstract")]),"green"),
+            ("Titles Only", len([p for p in corpus_papers if not p.get("abstract")]),""),
+            ("Vocab Size", "—","")], 4)
+
+    if n_docs < 3:
+        st.warning("Need at least 3 documents with content to run text analysis. Import more papers first.")
+        st.stop()
+
+    # ── common stopwords (no NLTK needed) ──────────────────────
+    STOPWORDS = set("""
+    a an the and or but in on at to for of with as is are was were be been being
+    have has had do does did will would could should may might shall can
+    this that these those it its from by into through during before after
+    above below between among within without about against across along
+    i we you he she they us them our your their my his her its
+    also such more most some any all both each every other no not
+    paper study research review analysis results findings data approach
+    method methods using used show shows showed shown suggest suggests
+    proposed propose presents present based based however thus therefore
+    furthermore moreover although while since when where which who
+    new different several many few first second third however thus
+    one two three four five six seven eight nine ten
+    et al pp doi journal international vol
+    """.lower().split())
+
+    def tokenize(text, min_len=3):
+        tokens = re.findall(r'[a-z][a-z\-]{2,}', text.lower())
+        return [t for t in tokens if t not in STOPWORDS and len(t) >= min_len]
+
+    # ── tabs ────────────────────────────────────────────────────
+    t_lda, t_tfidf, t_cooc, t_clust = st.tabs([
+        "🔬 LDA TOPIC MODELLING",
+        "📊 TF-IDF KEYWORDS",
+        "🔗 CO-OCCURRENCE NETWORK",
+        "🗂 SIMILARITY CLUSTERING",
+    ])
+
+    # ════════════════════════════════════════════════════════════
+    # LDA TOPIC MODELLING
+    # ════════════════════════════════════════════════════════════
+    with t_lda:
+        st.markdown("**Latent Dirichlet Allocation** — discovers hidden thematic structure across your corpus without any labels.")
+
+        col_cfg, col_out = st.columns([1, 2.5], gap="large")
+        with col_cfg:
+            sh("Parameters", "◈ ")
+            n_topics  = st.slider("Number of topics", 2, 8, min(5, max(2, len(corpus_papers)//4)), key="lda_k")
+            n_words   = st.slider("Top words per topic", 5, 15, 8, key="lda_w")
+            lda_corpus = st.radio("Run on", ["All imported papers","Title-screened (included)","Final included"],
+                                  key="lda_corp", label_visibility="visible")
+            run_lda = st.button("Run LDA", use_container_width=True, key="run_lda")
+
+        with col_out:
+            if run_lda or st.session_state.get("lda_done"):
+                st.session_state.lda_done = True
+
+                # select corpus
+                if lda_corpus == "Title-screened (included)":
+                    sel = [p for p in corpus_papers if p.get("title_decision")=="include"]
+                elif lda_corpus == "Final included":
+                    sel = [p for p in corpus_papers if p.get("abstract_decision")=="include"]
+                else:
+                    sel = corpus_papers
+
+                if len(sel) < 3:
+                    st.warning("Not enough papers in selected subset. Use a broader corpus.")
+                else:
+                    with st.spinner("Running LDA…"):
+                        try:
+                            from sklearn.feature_extraction.text import CountVectorizer
+                            from sklearn.decomposition import LatentDirichletAllocation
+                            import numpy as np
+
+                            sel_texts = [build_text(p) for p in sel]
+
+                            vec = CountVectorizer(
+                                tokenizer=tokenize, token_pattern=None,
+                                max_df=0.90, min_df=max(1, len(sel)//10),
+                                max_features=500
+                            )
+                            dtm = vec.fit_transform(sel_texts)
+                            vocab = vec.get_feature_names_out()
+
+                            # Update vocab metric
+                            st.session_state.lda_vocab = len(vocab)
+
+                            n_t = min(n_topics, dtm.shape[0]-1, dtm.shape[1]-1)
+                            lda = LatentDirichletAllocation(
+                                n_components=n_t, max_iter=20,
+                                learning_method='batch', random_state=42
+                            )
+                            lda.fit(dtm)
+                            doc_topics = lda.transform(dtm)
+
+                            sh(f"Discovered {n_t} Topics ({len(sel)} docs · vocab {len(vocab)})", "◈ ")
+                            COLORS = ["var(--blue)","var(--accent)","var(--green)","#9B7FCC","var(--red)",
+                                      "#5CC8C0","#E87B5A","#7FB8D4"]
+
+                            for t_i in range(n_t):
+                                top_idx = lda.components_[t_i].argsort()[-n_words:][::-1]
+                                top_wts = lda.components_[t_i][top_idx]
+                                top_wts_norm = top_wts / top_wts.max()
+                                top_w = [(vocab[j], top_wts_norm[k]) for k,j in enumerate(top_idx)]
+
+                                # papers assigned to this topic
+                                assigned = [sel[d]["id"] for d in range(len(sel)) if doc_topics[d].argmax()==t_i]
+                                color = COLORS[t_i % len(COLORS)]
+
+                                words_html = ""
+                                for word, wt in top_w:
+                                    if wt > 0.7:   cls = "tw w1"
+                                    elif wt > 0.4: cls = "tw w2"
+                                    else:          cls = "tw w3"
+                                    words_html += f'<span class="{cls}" style="border-color:{color}33;">{word}</span> '
+
+                                st.markdown(f"""
+                                <div class="topic-card" style="border-left-color:{color};">
+                                  <div class="topic-label">Topic {t_i+1} — {len(assigned)} papers</div>
+                                  <div class="topic-words">{words_html}</div>
+                                  <div class="topic-papers">Papers: {", ".join(assigned[:8])}{"…" if len(assigned)>8 else ""}</div>
+                                </div>""", unsafe_allow_html=True)
+
+                            # Topic-doc heatmap as dataframe
+                            st.markdown("&nbsp;", unsafe_allow_html=True)
+                            sh("Topic Distribution per Document", "◈ ")
+                            hmap = pd.DataFrame(
+                                {f"Topic {t+1}": [f"{doc_topics[d,t]:.2f}" for d in range(len(sel))] for t in range(n_t)},
+                                index=[p["id"] for p in sel]
+                            )
+                            st.dataframe(hmap, use_container_width=True)
+                            st.download_button("Export Topic Distribution (.csv)",
+                                hmap.reset_index().rename(columns={"index":"paper_id"}).to_csv(index=False),
+                                "lda_topics.csv","text/csv", use_container_width=True)
+
+                        except ImportError:
+                            st.error("sklearn not installed. Add `scikit-learn` to requirements.txt")
+                        except Exception as e:
+                            st.error(f"LDA error: {e}")
+            else:
+                st.markdown("""
+                <div class="empty-st" style="padding:2.5rem;">
+                  <div class="empty-glyph" style="font-size:1.8rem;">🔬</div>
+                  <div class="empty-title" style="font-size:.9rem;">Configure parameters and click Run LDA</div>
+                  <div class="empty-sub">Works best with 10+ papers that have abstracts</div>
+                </div>""", unsafe_allow_html=True)
+
+
+    # ════════════════════════════════════════════════════════════
+    # TF-IDF KEYWORD EXTRACTION
+    # ════════════════════════════════════════════════════════════
+    with t_tfidf:
+        st.markdown("**TF-IDF** — identifies the most statistically distinctive terms in your corpus and per individual paper.")
+
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            import numpy as np
+
+            col_l2, col_r2 = st.columns([1, 2.5], gap="large")
+
+            with col_l2:
+                sh("Settings", "◈ ")
+                top_n_global = st.slider("Top N global keywords", 10, 50, 20, key="tfidf_n")
+                tfidf_view   = st.radio("View", ["Corpus-wide","Per paper"], key="tfidf_view")
+                sel_paper    = None
+                if tfidf_view == "Per paper":
+                    popts = [f"{p['id']} — {p.get('title','')[:45]}…" for p in corpus_papers]
+                    sel_p = st.selectbox("Select paper", popts, key="tfidf_paper")
+                    sel_paper = corpus_papers[popts.index(sel_p)]
+
+            with col_r2:
+                with st.spinner("Computing TF-IDF…"):
+                    vec2 = TfidfVectorizer(
+                        tokenizer=tokenize, token_pattern=None,
+                        max_df=0.95, min_df=1, max_features=1000,
+                        sublinear_tf=True
+                    )
+                    tfidf_mat = vec2.fit_transform(texts)
+                    vocab2 = vec2.get_feature_names_out()
+
+                if tfidf_view == "Corpus-wide":
+                    sh(f"Top {top_n_global} Keywords — Corpus-wide TF-IDF", "◈ ")
+                    mean_scores = np.asarray(tfidf_mat.mean(axis=0)).flatten()
+                    top_idx2 = mean_scores.argsort()[-top_n_global:][::-1]
+                    max_s = mean_scores[top_idx2[0]]
+
+                    for idx in top_idx2:
+                        term = vocab2[idx]
+                        score = mean_scores[idx]
+                        pct = int((score / max_s) * 100)
+                        st.markdown(f"""
+                        <div class="tfidf-bar-wrap">
+                          <div class="tfidf-term">
+                            <span>{term}</span>
+                            <span style="color:var(--mist);font-size:.58rem;">{score:.4f}</span>
+                          </div>
+                          <div class="tfidf-bar-outer">
+                            <div class="tfidf-bar-inner" style="width:{pct}%"></div>
+                          </div>
+                        </div>""", unsafe_allow_html=True)
+
+                    # export
+                    kw_df = pd.DataFrame({"keyword":vocab2[top_idx2],"tfidf_score":mean_scores[top_idx2]})
+                    st.markdown("&nbsp;", unsafe_allow_html=True)
+                    st.download_button("Export Keywords (.csv)", kw_df.to_csv(index=False),"tfidf_keywords.csv","text/csv",use_container_width=True)
+                    st.info(f"💡 Tip: Add high-scoring keywords to your highlight list in Import tab for context-aware screening.")
+
+                else:  # per paper
+                    if sel_paper:
+                        pidx = [p["id"] for p in corpus_papers].index(sel_paper["id"])
+                        sh(f"Top Keywords — {sel_paper['id']}", "◈ ")
+                        st.markdown(f'<div class="pcard"><div class="pcard-title">{sel_paper.get("title","")}</div><div class="pcard-meta">{sel_paper.get("authors","")[:60]} · {sel_paper.get("year","")}</div></div>', unsafe_allow_html=True)
+
+                        row_scores = np.asarray(tfidf_mat[pidx].todense()).flatten()
+                        top_p_idx  = row_scores.argsort()[-top_n_global:][::-1]
+                        max_ps = row_scores[top_p_idx[0]] if row_scores[top_p_idx[0]] > 0 else 1
+
+                        for idx in top_p_idx:
+                            if row_scores[idx] == 0: break
+                            term  = vocab2[idx]
+                            score = row_scores[idx]
+                            pct   = int((score / max_ps) * 100)
+                            st.markdown(f"""
+                            <div class="tfidf-bar-wrap">
+                              <div class="tfidf-term">
+                                <span>{term}</span>
+                                <span style="color:var(--mist);font-size:.58rem;">{score:.4f}</span>
+                              </div>
+                              <div class="tfidf-bar-outer">
+                                <div class="tfidf-bar-inner" style="width:{pct}%"></div>
+                              </div>
+                            </div>""", unsafe_allow_html=True)
+
+        except ImportError:
+            st.error("sklearn not installed. Add `scikit-learn` to requirements.txt")
+        except Exception as e:
+            st.error(f"TF-IDF error: {e}")
+
+
+    # ════════════════════════════════════════════════════════════
+    # CO-OCCURRENCE NETWORK
+    # ════════════════════════════════════════════════════════════
+    with t_cooc:
+        st.markdown("**Keyword Co-occurrence** — shows which terms consistently appear together, revealing thematic clusters and research bridges.")
+
+        col_l3, col_r3 = st.columns([1, 2.5], gap="large")
+
+        with col_l3:
+            sh("Settings", "◈ ")
+            cooc_top_kw  = st.slider("Top keywords to consider", 20, 100, 40, key="cooc_kw")
+            cooc_top_pairs = st.slider("Top pairs to show", 10, 50, 25, key="cooc_pairs")
+            cooc_window  = st.radio("Context", ["Per document","Title + abstract separately"], key="cooc_win")
+
+        with col_r3:
+            with st.spinner("Computing co-occurrences…"):
+                try:
+                    from sklearn.feature_extraction.text import TfidfVectorizer
+                    import numpy as np
+                    from collections import Counter
+
+                    # get top-N vocab by TF-IDF
+                    vec3 = TfidfVectorizer(tokenizer=tokenize, token_pattern=None,
+                                           max_df=0.95, min_df=1, max_features=cooc_top_kw, sublinear_tf=True)
+                    vec3.fit(texts)
+                    top_vocab = set(vec3.get_feature_names_out())
+
+                    # count co-occurrences within each document
+                    pair_counts = Counter()
+                    for text in texts:
+                        toks = [t for t in tokenize(text) if t in top_vocab]
+                        unique_toks = list(dict.fromkeys(toks))  # preserve order, dedupe
+                        for i2 in range(len(unique_toks)):
+                            for j2 in range(i2+1, len(unique_toks)):
+                                pair = tuple(sorted([unique_toks[i2], unique_toks[j2]]))
+                                pair_counts[pair] += 1
+
+                    top_pairs = pair_counts.most_common(cooc_top_pairs)
+                    max_cnt = top_pairs[0][1] if top_pairs else 1
+
+                    sh(f"Top {len(top_pairs)} Co-occurring Pairs", "◈ ")
+
+                    for (w1, w2), cnt in top_pairs:
+                        bar_w = int((cnt / max_cnt) * 100)
+                        st.markdown(f"""
+                        <div class="cooc-pair">
+                          <div>
+                            <div class="cooc-terms"><span>{w1}</span>  ↔  <span>{w2}</span></div>
+                            <div style="height:3px;background:var(--border);border-radius:2px;margin-top:.35rem;width:200px;overflow:hidden;">
+                              <div style="height:100%;width:{bar_w}%;background:var(--blue);border-radius:2px;"></div>
+                            </div>
+                          </div>
+                          <div class="cooc-count">{cnt}</div>
+                        </div>""", unsafe_allow_html=True)
+
+                    cooc_df = pd.DataFrame([{"term_1":p[0],"term_2":p[1],"co_occurrences":c} for p,c in top_pairs])
+                    st.markdown("&nbsp;", unsafe_allow_html=True)
+                    st.download_button("Export Co-occurrence Matrix (.csv)", cooc_df.to_csv(index=False),"cooccurrence.csv","text/csv",use_container_width=True)
+
+                except ImportError:
+                    st.error("sklearn not installed. Add `scikit-learn` to requirements.txt")
+                except Exception as e:
+                    st.error(f"Co-occurrence error: {e}")
+
+
+    # ════════════════════════════════════════════════════════════
+    # SIMILARITY CLUSTERING (K-Means on TF-IDF)
+    # ════════════════════════════════════════════════════════════
+    with t_clust:
+        st.markdown("**Similarity Clustering** — groups papers by content similarity using TF-IDF vectors + K-Means, helping identify thematic subsets for focused review.")
+
+        col_l4, col_r4 = st.columns([1, 2.5], gap="large")
+
+        with col_l4:
+            sh("Settings", "◈ ")
+            n_clust = st.slider("Number of clusters", 2, min(8, len(corpus_papers)-1), min(4, max(2, len(corpus_papers)//5)), key="clust_k")
+            clust_words = st.slider("Descriptor words per cluster", 3, 10, 6, key="clust_w")
+            run_clust = st.button("Run Clustering", use_container_width=True, key="run_clust")
+
+        with col_r4:
+            if run_clust or st.session_state.get("clust_done"):
+                st.session_state.clust_done = True
+                with st.spinner("Clustering papers…"):
+                    try:
+                        from sklearn.feature_extraction.text import TfidfVectorizer
+                        from sklearn.cluster import KMeans
+                        import numpy as np
+
+                        vec4 = TfidfVectorizer(tokenizer=tokenize, token_pattern=None,
+                                               max_df=0.90, min_df=1, max_features=500, sublinear_tf=True)
+                        X = vec4.fit_transform(texts)
+                        vocab4 = vec4.get_feature_names_out()
+
+                        km = KMeans(n_clusters=min(n_clust, X.shape[0]-1), random_state=42, n_init=10, max_iter=200)
+                        labels = km.fit_predict(X)
+
+                        sh(f"{n_clust} Clusters · {len(corpus_papers)} Papers", "◈ ")
+                        COLORS2 = ["var(--blue)","var(--accent)","var(--green)","#9B7FCC","var(--red)","#5CC8C0","#E87B5A","#7FB8D4"]
+
+                        for c_i in range(km.n_clusters):
+                            # descriptor words = centroid top words
+                            center = km.cluster_centers_[c_i]
+                            top_wi = center.argsort()[-clust_words:][::-1]
+                            desc_words = " · ".join(vocab4[top_wi])
+
+                            # papers in cluster
+                            cluster_papers = [corpus_papers[d] for d in range(len(corpus_papers)) if labels[d]==c_i]
+                            paper_ids = [p["id"] for p in cluster_papers]
+                            paper_titles = [f'{p["id"]} {p.get("title","")[:40]}…' for p in cluster_papers]
+
+                            color = COLORS2[c_i % len(COLORS2)]
+                            st.markdown(f"""
+                            <div class="cluster-card" style="border-left:3px solid {color};">
+                              <div class="cluster-head">
+                                <div>
+                                  <div class="cluster-label" style="color:{color};">Cluster {c_i+1}</div>
+                                  <div class="cluster-keywords">{desc_words}</div>
+                                </div>
+                                <div class="cluster-n">{len(cluster_papers)}</div>
+                              </div>
+                              <div class="cluster-papers">{" · ".join(paper_ids)}</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        # export assignments
+                        assign_df = pd.DataFrame({
+                            "paper_id": [p["id"] for p in corpus_papers],
+                            "title": [p.get("title","")[:80] for p in corpus_papers],
+                            "cluster": [int(labels[d])+1 for d in range(len(corpus_papers))],
+                        })
+                        st.markdown("&nbsp;", unsafe_allow_html=True)
+                        st.download_button("Export Cluster Assignments (.csv)", assign_df.to_csv(index=False),"clusters.csv","text/csv",use_container_width=True)
+
+                    except ImportError:
+                        st.error("sklearn not installed. Add `scikit-learn` to requirements.txt")
+                    except Exception as e:
+                        st.error(f"Clustering error: {e}")
+            else:
+                st.markdown("""
+                <div class="empty-st" style="padding:2.5rem;">
+                  <div class="empty-glyph" style="font-size:1.8rem;">🗂</div>
+                  <div class="empty-title" style="font-size:.9rem;">Configure and click Run Clustering</div>
+                  <div class="empty-sub">Works on all imported papers regardless of screening stage</div>
+                </div>""", unsafe_allow_html=True)
