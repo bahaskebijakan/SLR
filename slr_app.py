@@ -1,791 +1,1041 @@
 """
 SLR·Studio — Systematic Literature Review Platform
-Developed by Bahas Kebijakan
-PRISMA 2020 Compliant
+Bahas Kebijakan · PRISMA 2020
+Design: Editorial Research Journal — stark, refined, authoritative
 """
 
 import streamlit as st
 import pandas as pd
-import json
-import re
-import io
+import json, re, io
 from datetime import datetime
 
-# ── PAGE CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="SLR·Studio · Bahas Kebijakan",
-    page_icon="📚",
+    page_icon="◈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── CUSTOM CSS ─────────────────────────────────────────────────────────────────
-st.markdown("""
+CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
 
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
+:root {
+  --ink:        #1A1A1A;
+  --ink2:       #2D2D2D;
+  --ink3:       #3D3D3D;
+  --steel:      #1E2028;
+  --panel:      #22252F;
+  --panel2:     #272B36;
+  --border:     #353A48;
+  --border2:    #414759;
+  --mist:       #6E7891;
+  --mist2:      #8E96AB;
+  --snow:       #F4F2EE;
+  --snow2:      #E8E4DD;
+  --snow3:      #D4CEC4;
+  --accent:     #E8B84B;
+  --accent2:    #F0CC78;
+  --accent-bg:  rgba(232,184,75,0.08);
+  --red:        #D9534F;
+  --red-bg:     rgba(217,83,79,0.08);
+  --green:      #5DA87A;
+  --green-bg:   rgba(93,168,122,0.08);
+  --blue:       #5B8DB8;
+  --blue-bg:    rgba(91,141,184,0.08);
+  --fD: 'Playfair Display', Georgia, serif;
+  --fS: 'Space Grotesk', sans-serif;
+  --fM: 'Space Mono', monospace;
+}
 
-.stApp { background-color: #0d1117; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+#MainMenu, footer, header { visibility: hidden; }
 
+/* ── App shell ── */
+.stApp { background: var(--steel); }
+.block-container { padding: 0 2rem 3rem !important; max-width: 1440px !important; }
+
+/* ── Sidebar ── */
 [data-testid="stSidebar"] {
-    background-color: #161b22 !important;
-    border-right: 1px solid #2a3147;
+  background: var(--ink) !important;
+  border-right: 1px solid var(--border) !important;
 }
-[data-testid="stSidebar"] .stMarkdown p {
-    color: #8b949e;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.82rem;
-}
+[data-testid="stSidebar"] > div { background: var(--ink) !important; }
+[data-testid="stSidebar"] section { padding: 0 !important; }
 
-.stMarkdown, .stText, p { color: #e6edf3 !important; font-family: 'DM Sans', sans-serif; }
-h1 { font-family: 'DM Sans', sans-serif !important; font-size: 1.4rem !important; color: #e6edf3 !important; }
-h2 { font-family: 'DM Sans', sans-serif !important; font-size: 1.1rem !important; color: #e6edf3 !important; }
-h3 { font-family: 'DM Sans', sans-serif !important; font-size: 0.9rem !important; color: #8b949e !important; }
-
-[data-testid="metric-container"] {
-    background: #161b22;
-    border: 1px solid #2a3147;
-    border-radius: 8px;
-    padding: 0.75rem 1rem !important;
-}
-[data-testid="metric-container"] label {
-    color: #565f73 !important;
-    font-size: 0.68rem !important;
-    font-family: 'IBM Plex Mono', monospace !important;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    color: #e6edf3 !important;
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 1.5rem !important;
-}
-
-[data-testid="stDataFrame"] { border: 1px solid #2a3147; border-radius: 8px; }
-
+/* ── Buttons ── */
 .stButton > button {
-    background: #1c2333;
-    border: 1px solid #374166;
-    color: #e6edf3;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.8rem;
-    border-radius: 5px;
-    padding: 0.4rem 1rem;
-    transition: all 0.15s;
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  color: var(--mist2) !important;
+  font-family: var(--fM) !important;
+  font-size: 0.68rem !important;
+  letter-spacing: 0.04em !important;
+  border-radius: 3px !important;
+  padding: 0.45rem 1rem !important;
+  transition: all 0.2s !important;
+  text-align: left !important;
 }
-.stButton > button:hover { background: #f0a500; color: #0d1117; border-color: #f0a500; }
+.stButton > button:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-bg) !important;
+}
+.stButton > button:focus { box-shadow: none !important; outline: none !important; }
 
-.stSelectbox [data-baseweb="select"] { background: #1c2333; border: 1px solid #2a3147; }
-.stSelectbox label { color: #565f73 !important; font-size: 0.68rem !important; font-family: 'IBM Plex Mono', monospace !important; text-transform: uppercase; }
-
+/* ── Inputs ── */
 .stTextInput input, .stTextArea textarea {
-    background: #1c2333 !important;
-    border: 1px solid #2a3147 !important;
-    color: #e6edf3 !important;
-    font-family: 'DM Sans', sans-serif;
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--snow) !important;
+  font-family: var(--fS) !important;
+  font-size: 0.82rem !important;
+  border-radius: 3px !important;
+}
+.stTextInput input:focus, .stTextArea textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 1px var(--accent-bg) !important;
 }
 .stTextInput label, .stTextArea label {
-    color: #565f73 !important;
-    font-size: 0.68rem !important;
-    font-family: 'IBM Plex Mono', monospace !important;
-    text-transform: uppercase;
+  color: var(--mist) !important;
+  font-family: var(--fM) !important;
+  font-size: 0.6rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.12em !important;
 }
 
-[data-testid="stFileUploader"] { background: #1c2333; border: 1.5px dashed #374166; border-radius: 8px; }
+/* ── Select ── */
+.stSelectbox > div > div > div {
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 3px !important;
+  color: var(--snow2) !important;
+  font-family: var(--fS) !important;
+  font-size: 0.8rem !important;
+}
+.stSelectbox label { color: var(--mist) !important; font-family: var(--fM) !important; font-size: 0.6rem !important; text-transform: uppercase !important; letter-spacing: 0.12em !important; }
+[data-baseweb="popover"] { background: var(--panel2) !important; border: 1px solid var(--border2) !important; border-radius: 3px !important; }
+[data-baseweb="menu"] { background: var(--panel2) !important; }
+[data-baseweb="option"] { background: transparent !important; color: var(--snow2) !important; font-family: var(--fS) !important; font-size: 0.8rem !important; }
+[data-baseweb="option"]:hover { background: var(--panel) !important; }
 
-.stRadio label { color: #8b949e !important; font-size: 0.82rem !important; }
-.stRadio [data-testid="stMarkdownContainer"] p { color: #8b949e !important; }
+/* ── Radio ── */
+.stRadio > div { gap: 0.15rem !important; }
+.stRadio label span { color: var(--mist2) !important; font-family: var(--fM) !important; font-size: 0.7rem !important; }
 
-.streamlit-expanderHeader { background: #161b22 !important; border: 1px solid #2a3147 !important; border-radius: 6px !important; color: #e6edf3 !important; }
+/* ── Checkbox ── */
+.stCheckbox label span { color: var(--mist2) !important; font-family: var(--fM) !important; font-size: 0.72rem !important; }
 
-.stTabs [data-baseweb="tab-list"] { background: #161b22; border-bottom: 1px solid #2a3147; }
-.stTabs [data-baseweb="tab"] { background: transparent; color: #565f73; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; border-bottom: 2px solid transparent; }
-.stTabs [aria-selected="true"] { color: #ffd166 !important; border-bottom-color: #f0a500 !important; background: transparent !important; }
+/* ── File uploader ── */
+[data-testid="stFileUploader"] {
+  background: var(--panel) !important;
+  border: 1px dashed var(--border2) !important;
+  border-radius: 4px !important;
+}
+[data-testid="stFileUploader"] p {
+  color: var(--mist) !important;
+  font-family: var(--fM) !important;
+  font-size: 0.7rem !important;
+}
+[data-testid="stFileUploader"] small { color: var(--mist) !important; font-family: var(--fM) !important; }
 
-.stProgress > div > div { background: linear-gradient(90deg, #f0a500, #ffd166); }
-.stAlert { border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; }
-hr { border-color: #2a3147 !important; }
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border) !important;
+  gap: 0 !important;
+  padding: 0 !important;
+}
+.stTabs [data-baseweb="tab"] {
+  font-family: var(--fM) !important;
+  font-size: 0.65rem !important;
+  color: var(--mist) !important;
+  background: transparent !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 0.65rem 1.2rem !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+.stTabs [data-baseweb="tab"]:hover { color: var(--snow2) !important; }
+.stTabs [aria-selected="true"] {
+  color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+  font-weight: 700 !important;
+}
 
-.brand-logo { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; font-weight: 600; color: #f0a500; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid #f0a500; padding: 4px 10px; border-radius: 3px; display: inline-block; margin-bottom: 0.5rem; }
-.brand-sub { font-family: 'DM Sans', sans-serif; font-size: 0.72rem; color: #565f73; margin-top: 0.2rem; }
-.brand-dev { font-size: 0.68rem; color: #565f73; font-family: 'IBM Plex Mono', monospace; margin-top: 0.4rem; }
-.brand-dev span { color: #ffd166; font-weight: 600; }
+/* ── Dataframe ── */
+[data-testid="stDataFrame"] { border: 1px solid var(--border) !important; border-radius: 3px !important; overflow: hidden !important; }
+[data-testid="stDataFrame"] table { font-family: var(--fM) !important; font-size: 0.7rem !important; }
+[data-testid="stDataFrame"] thead th {
+  background: var(--panel2) !important; color: var(--mist) !important;
+  font-size: 0.58rem !important; text-transform: uppercase !important; letter-spacing: 0.1em !important;
+  border-bottom: 1px solid var(--border2) !important; padding: 0.6rem 0.8rem !important;
+}
+[data-testid="stDataFrame"] tbody td {
+  background: var(--panel) !important; color: var(--snow2) !important;
+  border-bottom: 1px solid var(--border) !important; padding: 0.5rem 0.8rem !important;
+}
+[data-testid="stDataFrame"] tbody tr:hover td { background: var(--panel2) !important; }
 
-.tag-include { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.3); padding: 2px 8px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; text-transform: uppercase; display:inline-block; }
-.tag-exclude { background: rgba(248,81,73,0.12); color: #f85149; border: 1px solid rgba(248,81,73,0.25); padding: 2px 8px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; text-transform: uppercase; display:inline-block; }
-.tag-maybe { background: rgba(240,165,0,0.12); color: #ffd166; border: 1px solid rgba(240,165,0,0.25); padding: 2px 8px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; text-transform: uppercase; display:inline-block; }
-.tag-pending { background: rgba(139,148,158,0.1); color: #565f73; border: 1px solid #2a3147; padding: 2px 8px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; text-transform: uppercase; display:inline-block; }
-.tag-high { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.3); padding: 2px 8px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; display:inline-block; }
-.tag-med { background: rgba(240,165,0,0.12); color: #ffd166; border: 1px solid rgba(240,165,0,0.25); padding: 2px 8px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; display:inline-block; }
-.tag-low { background: rgba(248,81,73,0.12); color: #f85149; border: 1px solid rgba(248,81,73,0.25); padding: 2px 8px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; display:inline-block; }
-.tag-type { background: rgba(88,166,255,0.1); color: #58a6ff; border: 1px solid rgba(88,166,255,0.2); padding: 2px 6px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; display:inline-block; }
+/* ── Alerts ── */
+.stAlert { border-radius: 3px !important; font-family: var(--fM) !important; font-size: 0.7rem !important; }
+.stAlert p { font-family: var(--fM) !important; font-size: 0.7rem !important; }
 
-.paper-card { background: #161b22; border: 1px solid #2a3147; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
-.paper-title { font-size: 0.9rem; color: #e6edf3; font-weight: 500; margin-bottom: 0.2rem; font-family: 'DM Sans', sans-serif; }
-.paper-meta { font-size: 0.65rem; color: #565f73; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.5rem; }
-.paper-abstract { font-size: 0.8rem; color: #8b949e; line-height: 1.7; font-family: 'DM Sans', sans-serif; }
-.hl { background: rgba(240,165,0,0.25); color: #ffd166; border-radius: 2px; padding: 0 2px; }
+/* ── Progress bar ── */
+.stProgress > div { background: var(--border) !important; height: 2px !important; border-radius: 1px !important; }
+.stProgress > div > div { background: var(--accent) !important; }
 
-.section-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: #565f73; margin-bottom: 0.5rem; padding-bottom: 0.35rem; border-bottom: 1px solid #2a3147; }
+/* ── Slider ── */
+[data-baseweb="slider"] [data-testid="stThumbValue"] {
+  font-family: var(--fM) !important; font-size: 0.6rem !important;
+  background: var(--panel2) !important; color: var(--accent) !important;
+  border: 1px solid var(--border2) !important;
+}
 
-.footer-brand { text-align: center; padding: 1rem; font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: #374166; border-top: 1px solid #2a3147; margin-top: 2rem; }
-.footer-brand span { color: #ffd166; }
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--ink2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+hr { border-color: var(--border) !important; margin: 0.75rem 0 !important; }
+
+/* ═══════════════════════════════════════
+   CUSTOM LAYOUT COMPONENTS
+   ═══════════════════════════════════════ */
+
+/* ── Top nav bar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 0 0.85rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.topbar-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.topbar-logo {
+  font-family: var(--fD);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--snow);
+  letter-spacing: -0.01em;
+}
+.topbar-logo em {
+  font-style: italic;
+  color: var(--accent);
+}
+.topbar-sep {
+  width: 1px; height: 18px;
+  background: var(--border2);
+  display: inline-block;
+}
+.topbar-subtitle {
+  font-family: var(--fM);
+  font-size: 0.6rem;
+  color: var(--mist);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.topbar-stat {
+  text-align: right;
+}
+.topbar-stat-val {
+  font-family: var(--fM);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--snow2);
+  display: block;
+}
+.topbar-stat-key {
+  font-family: var(--fM);
+  font-size: 0.52rem;
+  color: var(--mist);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.topbar-stat-val.gold { color: var(--accent); }
+.topbar-divider { width: 1px; height: 28px; background: var(--border); }
+
+/* ── Page header ── */
+.pg {
+  padding: 1.75rem 0 1.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.75rem;
+}
+.pg-step {
+  font-family: var(--fM);
+  font-size: 0.58rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 0.5rem;
+}
+.pg-h1 {
+  font-family: var(--fD);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--snow);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.pg-h1 em { font-style: italic; color: var(--accent2); }
+.pg-desc {
+  font-family: var(--fS);
+  font-size: 0.82rem;
+  color: var(--mist2);
+  margin-top: 0.5rem;
+  line-height: 1.6;
+  max-width: 620px;
+}
+
+/* ── Section header ── */
+.sh {
+  font-family: var(--fM);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--mist);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sh-acc { color: var(--accent); }
+
+/* ── Metric cards ── */
+.mc-row {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1.75rem;
+}
+.mc-row-4 { grid-template-columns: repeat(4, 1fr); }
+.mc-row-5 { grid-template-columns: repeat(5, 1fr); }
+.mc-row-3 { grid-template-columns: repeat(3, 1fr); }
+.mc {
+  background: var(--panel);
+  padding: 1rem 1.25rem;
+}
+.mc-val {
+  font-family: var(--fD);
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--snow);
+  line-height: 1;
+  margin-bottom: 0.3rem;
+}
+.mc-val.gold { color: var(--accent); }
+.mc-val.green { color: var(--green); }
+.mc-val.red { color: var(--red); }
+.mc-val.blue { color: var(--blue); }
+.mc-key {
+  font-family: var(--fM);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--mist);
+}
+
+/* ── Paper card ── */
+.pcard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.15s;
+  position: relative;
+}
+.pcard:hover { border-color: var(--border2); }
+.pcard-type {
+  font-family: var(--fM);
+  font-size: 0.52rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mist);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: 2px;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+}
+.pcard-title {
+  font-family: var(--fD);
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: var(--snow);
+  line-height: 1.4;
+  margin-bottom: 0.3rem;
+}
+.pcard-meta {
+  font-family: var(--fM);
+  font-size: 0.6rem;
+  color: var(--mist);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.6rem;
+}
+.pcard-abstract {
+  font-family: var(--fS);
+  font-size: 0.8rem;
+  color: var(--mist2);
+  line-height: 1.75;
+  max-height: 120px;
+  overflow: hidden;
+  position: relative;
+}
+.pcard-abstract::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 40px;
+  background: linear-gradient(transparent, var(--panel));
+}
+.hl { background: rgba(232,184,75,0.2); color: var(--accent2); border-radius: 2px; padding: 0 2px; }
+
+/* Decision strip */
+.pcard-inc { border-left: 3px solid var(--green); }
+.pcard-exc { border-left: 3px solid var(--red); }
+.pcard-may { border-left: 3px solid var(--accent); }
+
+/* ── Status pills ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--fM);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 3px 9px;
+  border-radius: 2px;
+}
+.pill-inc { background: var(--green-bg); color: var(--green); border: 1px solid rgba(93,168,122,0.3); }
+.pill-exc { background: var(--red-bg);   color: var(--red);   border: 1px solid rgba(217,83,79,0.3); }
+.pill-may { background: var(--accent-bg); color: var(--accent); border: 1px solid rgba(232,184,75,0.3); }
+.pill-pnd { background: var(--panel);    color: var(--mist);  border: 1px solid var(--border); }
+.pill-hq  { background: var(--green-bg); color: var(--green); border: 1px solid rgba(93,168,122,0.3); }
+.pill-mq  { background: var(--accent-bg); color: var(--accent); border: 1px solid rgba(232,184,75,0.3); }
+.pill-lq  { background: var(--red-bg);   color: var(--red);   border: 1px solid rgba(217,83,79,0.3); }
+
+/* ── Sidebar ── */
+.sb-logo-wrap { padding: 1.4rem 1.25rem 1rem; border-bottom: 1px solid var(--border); }
+.sb-logotype {
+  font-family: var(--fD);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--snow);
+  letter-spacing: -0.01em;
+}
+.sb-logotype em { font-style: italic; color: var(--accent); }
+.sb-tagline { font-family: var(--fM); font-size: 0.52rem; color: var(--mist); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 0.2rem; }
+.sb-dev { font-family: var(--fM); font-size: 0.52rem; color: var(--border2); margin-top: 0.25rem; letter-spacing: 0.06em; }
+.sb-dev b { color: var(--mist); font-weight: 400; }
+
+.sb-nav-section { padding: 0.9rem 1.25rem 0.3rem; font-family: var(--fM); font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.18em; color: var(--border2); }
+
+.sb-stats { padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+.sb-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 0.22rem 0; }
+.sb-stat-key { font-family: var(--fM); font-size: 0.56rem; color: var(--mist); text-transform: uppercase; letter-spacing: 0.08em; }
+.sb-stat-val { font-family: var(--fM); font-size: 0.7rem; color: var(--snow2); }
+.sb-stat-val.gold { color: var(--accent); }
+.sb-prog { height: 1px; background: var(--border); margin: 0.6rem 0 0.3rem; overflow: hidden; }
+.sb-prog-fill { height: 100%; background: var(--accent); transition: width 0.4s; }
+.sb-pct { font-family: var(--fM); font-size: 0.52rem; color: var(--mist); display: flex; justify-content: space-between; }
+
+/* ── Import items ── */
+.import-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.6rem 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-bottom: 0.35rem;
+}
+.import-fn { font-family: var(--fM); font-size: 0.68rem; color: var(--snow2); }
+.import-src { font-family: var(--fM); font-size: 0.56rem; color: var(--mist); margin-top: 0.1rem; }
+.import-n { font-family: var(--fD); font-size: 1.1rem; font-weight: 600; color: var(--accent); }
+
+/* ── PRISMA boxes ── */
+.prisma-flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.prisma-box {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 0.85rem 2rem;
+  text-align: center;
+  min-width: 300px;
+  position: relative;
+}
+.prisma-box.blue-acc  { border-top: 3px solid var(--blue); }
+.prisma-box.gold-acc  { border-top: 3px solid var(--accent); }
+.prisma-box.purple-acc{ border-top: 3px solid #9B7FCC; }
+.prisma-box.green-acc { border-top: 3px solid var(--green); }
+.prisma-n   { font-family: var(--fD); font-size: 2rem; font-weight: 700; color: var(--snow); }
+.prisma-lbl { font-family: var(--fM); font-size: 0.56rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--mist); margin-bottom: 0.2rem; }
+.prisma-sub { font-family: var(--fS); font-size: 0.72rem; color: var(--mist2); margin-top: 0.1rem; }
+.prisma-arrow { font-size: 1.1rem; color: var(--border2); padding: 0.3rem 0; }
+.prisma-row { display: flex; align-items: center; gap: 0.75rem; }
+.prisma-branch {
+  background: var(--red-bg);
+  border: 1px solid rgba(217,83,79,0.25);
+  border-radius: 3px;
+  padding: 0.5rem 0.9rem;
+  font-family: var(--fM);
+  font-size: 0.62rem;
+  color: var(--red);
+  text-align: center;
+  min-width: 130px;
+  line-height: 1.5;
+}
+.prisma-line { width: 1.5rem; height: 1px; background: var(--border2); flex-shrink: 0; }
+
+/* ── Empty state ── */
+.empty-st {
+  text-align: center;
+  padding: 4rem 2rem;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+.empty-glyph { font-family: var(--fD); font-size: 3rem; color: var(--border2); margin-bottom: 0.75rem; font-style: italic; }
+.empty-title { font-family: var(--fD); font-size: 1.1rem; color: var(--mist2); margin-bottom: 0.4rem; }
+.empty-sub   { font-family: var(--fM); font-size: 0.62rem; color: var(--border2); text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* ── Keyword tags ── */
+.kw-tag { display: inline-block; font-family: var(--fM); font-size: 0.58rem; color: var(--mist); background: var(--panel2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 2px; margin: 2px; }
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(CSS, unsafe_allow_html=True)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PARSERS
-# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+# PARSERS (logic unchanged)
+# ══════════════════════════════════════════════════════════════
 
-def _make_record(i, doc_type, title, authors, year, journal, abstract, doi, url, keywords, volume, local_file):
-    """Return a standardised paper dict."""
-    return {
-        "id": f"P{str(i+1).zfill(3)}",
-        "doc_type": doc_type,
-        "title": title.strip(),
-        "authors": authors,
-        "year": year,
-        "journal": journal,
-        "abstract": abstract.strip(),
-        "doi": doi,
-        "url": url,
-        "keywords": keywords,
-        "volume": volume,
-        "local_file": local_file,
-        "title_decision": None,
-        "abstract_decision": None,
-        "exclusion_reason": "",
-        "study_location": "",
-        "methodology": "",
-        "dataset": "",
-        "policy_implication": "",
-        "key_findings": "",
-        "qa_obj": 0, "qa_method": 0, "qa_data": 0, "qa_bias": 0, "qa_rel": 0,
-    }
-
+def _rec(i, doc_type, title, authors, year, journal, abstract, doi, url, keywords, volume, local_file):
+    return {"id": f"P{str(i+1).zfill(3)}", "doc_type": doc_type, "title": title.strip(),
+            "authors": authors, "year": year, "journal": journal, "abstract": abstract.strip(),
+            "doi": doi, "url": url, "keywords": keywords, "volume": volume, "local_file": local_file,
+            "title_decision": None, "abstract_decision": None, "exclusion_reason": "",
+            "study_location": "", "methodology": "", "dataset": "",
+            "policy_implication": "", "key_findings": "",
+            "qa_obj": 0, "qa_method": 0, "qa_data": 0, "qa_bias": 0, "qa_rel": 0}
 
 def parse_ris(content):
-    """Parse RIS — handles Mendeley, Zotero, EndNote exports incl. RPRT, ICOMM, HEAR types."""
-    records_raw = []
-    current = {}
-    last_tag = None
-
+    records_raw, current, last_tag = [], {}, None
     for line in content.splitlines():
         if line.startswith("ER  -"):
-            if current:
-                records_raw.append(current)
-                current = {}
-                last_tag = None
-            continue
-
+            if current: records_raw.append(current)
+            current, last_tag = {}, None; continue
         m = re.match(r'^([A-Z0-9]{2})\s{2}-\s*(.*)', line)
         if m:
-            tag, value = m.group(1), m.group(2).strip()
-            last_tag = tag
+            tag, value = m.group(1), m.group(2).strip(); last_tag = tag
         elif line.startswith("  ") and last_tag and current:
-            # Multi-line continuation
-            val = line.strip()
-            if last_tag in ("N2", "AB", "N1", "T1"):
-                current[last_tag] = current.get(last_tag, "") + " " + val
+            if last_tag in ("N2","AB","N1","T1"):
+                current[last_tag] = current.get(last_tag,"") + " " + line.strip()
             continue
-        else:
-            continue
-
-        if tag == "TY":
-            current["TY"] = value
-        elif tag in ("T1", "TI"):
-            current.setdefault("T1", value)
-        elif tag in ("A1", "AU"):
-            current.setdefault("authors", []).append(value)
-        elif tag in ("Y1", "PY"):
+        else: continue
+        if   tag == "TY":             current["TY"] = value
+        elif tag in ("T1","TI"):      current.setdefault("T1", value)
+        elif tag in ("A1","AU"):      current.setdefault("authors",[]).append(value)
+        elif tag in ("Y1","PY"):
             m2 = re.match(r'(\d{4})', value)
-            if m2:
-                current["year"] = int(m2.group(1))
-        elif tag in ("JF", "JO", "J1", "T2"):
-            current.setdefault("JF", value)
-        elif tag in ("N2", "AB"):
-            current["N2"] = current.get("N2", "") + value
-        elif tag == "N1":
-            current["N1"] = current.get("N1", "") + value
-        elif tag == "DO":
-            current["DO"] = value
-        elif tag in ("UR", "LK"):
-            current.setdefault("UR", value)
-        elif tag == "KW":
-            current.setdefault("KW", []).append(value)
-        elif tag in ("PB",):
-            current.setdefault("PB", value)
-        elif tag == "CY":
-            current.setdefault("CY", value)
-        elif tag == "VL":
-            current["VL"] = value
-        elif tag == "L1":
-            current["L1"] = value.replace("file:///", "")
-
-    if current:
-        records_raw.append(current)
-
+            if m2: current["year"] = int(m2.group(1))
+        elif tag in ("JF","JO","J1","T2"): current.setdefault("JF", value)
+        elif tag in ("N2","AB"):      current["N2"] = current.get("N2","") + value
+        elif tag == "N1":             current["N1"] = current.get("N1","") + value
+        elif tag == "DO":             current["DO"] = value
+        elif tag in ("UR","LK"):      current.setdefault("UR", value)
+        elif tag == "KW":             current.setdefault("KW",[]).append(value)
+        elif tag == "PB":             current.setdefault("PB", value)
+        elif tag == "CY":             current.setdefault("CY", value)
+        elif tag == "VL":             current["VL"] = value
+        elif tag == "L1":             current["L1"] = value.replace("file:///","")
+    if current: records_raw.append(current)
+    tf = {"RPRT":"Report","ICOMM":"Web/Comm.","HEAR":"Hearing","CONF":"Conference"}
     out = []
-    type_fallback = {"RPRT": "Report", "ICOMM": "Web/Communication",
-                     "HEAR": "Hearing", "CONF": "Conference", "BOOK": "Book", "CHAP": "Book Chapter"}
-
     for i, r in enumerate(records_raw):
-        title = r.get("T1", "").strip()
-        if not title:
-            continue
-        doc_type = r.get("TY", "JOUR")
-        authors  = "; ".join(r.get("authors", []))
-        year     = r.get("year", "")
-        journal  = r.get("JF") or r.get("PB") or r.get("CY") or type_fallback.get(doc_type, "")
-        abstract = (r.get("N2") or r.get("N1") or "").strip()
-        doi      = r.get("DO", "")
-        url      = r.get("UR", "")
-        keywords = "; ".join(r.get("KW", []))
-        volume   = r.get("VL", "")
-        local    = r.get("L1", "")
-        out.append(_make_record(i, doc_type, title, authors, year, journal, abstract, doi, url, keywords, volume, local))
-
-    return out, f"✓ Parsed {len(out)} records from RIS"
-
+        title = r.get("T1","").strip()
+        if not title: continue
+        dt = r.get("TY","JOUR")
+        out.append(_rec(i, dt, title, "; ".join(r.get("authors",[])), r.get("year",""),
+            r.get("JF") or r.get("PB") or r.get("CY") or tf.get(dt,""),
+            (r.get("N2") or r.get("N1") or "").strip(),
+            r.get("DO",""), r.get("UR",""), "; ".join(r.get("KW",[])), r.get("VL",""), r.get("L1","")))
+    return out, f"Parsed {len(out)} records"
 
 def parse_bib(content):
-    """Parse BibTeX from Scopus, Dimensions, Zotero."""
     entries = re.findall(r'@\w+\s*\{[^@]+', content, re.DOTALL)
+    tm = {"article":"JOUR","inproceedings":"CONF","book":"BOOK","techreport":"RPRT","misc":"MISC","incollection":"CHAP"}
+    def gf(entry, name):
+        m = re.search(rf'\b{name}\s*=\s*\{{((?:[^{{}}]|\{{[^{{}}]*\}})*)\}}', entry, re.IGNORECASE|re.DOTALL)
+        if m: return re.sub(r'\{([^{}]*)\}', r'\1', m.group(1)).strip()
+        m = re.search(rf'\b{name}\s*=\s*"([^"]*)"', entry, re.IGNORECASE|re.DOTALL)
+        return m.group(1).strip() if m else ""
     out = []
-    type_map = {"article": "JOUR", "inproceedings": "CONF", "proceedings": "CONF",
-                "book": "BOOK", "techreport": "RPRT", "misc": "MISC", "incollection": "CHAP"}
-
-    def get_field(entry, name):
-        # Try braces
-        m = re.search(rf'\b{name}\s*=\s*\{{((?:[^{{}}]|\{{[^{{}}]*\}})*)\}}', entry, re.IGNORECASE | re.DOTALL)
-        if m:
-            return re.sub(r'\{([^{}]*)\}', r'\1', m.group(1)).strip()
-        # Try quotes
-        m = re.search(rf'\b{name}\s*=\s*"([^"]*)"', entry, re.IGNORECASE | re.DOTALL)
-        if m:
-            return m.group(1).strip()
-        return ""
-
     for i, entry in enumerate(entries):
-        type_m = re.match(r'@(\w+)\s*\{', entry)
-        if not type_m:
-            continue
-        doc_type = type_map.get(type_m.group(1).lower(), type_m.group(1).upper())
-        title = get_field(entry, "title")
-        if not title:
-            continue
-        author   = get_field(entry, "author")
-        year_s   = get_field(entry, "year")
-        year     = int(year_s) if year_s.isdigit() else year_s
-        journal  = get_field(entry, "journal") or get_field(entry, "booktitle") or get_field(entry, "publisher") or ""
-        abstract = get_field(entry, "abstract")
-        doi      = get_field(entry, "doi")
-        url      = get_field(entry, "url")
-        keywords = get_field(entry, "keywords") or get_field(entry, "keyword")
-        volume   = get_field(entry, "volume")
-        out.append(_make_record(i, doc_type, title, author, year, journal, abstract, doi, url, keywords, volume, ""))
+        tm2 = re.match(r'@(\w+)\s*\{', entry)
+        if not tm2: continue
+        dt = tm.get(tm2.group(1).lower(), tm2.group(1).upper())
+        title = gf(entry,"title")
+        if not title: continue
+        ys = gf(entry,"year"); year = int(ys) if ys.isdigit() else ys
+        out.append(_rec(i, dt, title, gf(entry,"author"), year,
+            gf(entry,"journal") or gf(entry,"booktitle") or gf(entry,"publisher"),
+            gf(entry,"abstract"), gf(entry,"doi"), gf(entry,"url"),
+            gf(entry,"keywords") or gf(entry,"keyword"), gf(entry,"volume"), ""))
+    return out, f"Parsed {len(out)} records"
 
-    return out, f"✓ Parsed {len(out)} records from BibTeX"
-
-
-def parse_csv(content):
-    """Parse CSV from Web of Science or Scopus. Auto-detects column headers."""
-    try:
-        df = pd.read_csv(io.StringIO(content), dtype=str).fillna("")
-    except Exception as e:
-        return [], f"❌ CSV parse error: {e}"
-
+def parse_csv_file(content):
+    try: df = pd.read_csv(io.StringIO(content), dtype=str).fillna("")
+    except Exception as e: return [], f"CSV error: {e}"
     cols = list(df.columns)
-
-    def find(aliases):
-        for a in aliases:
-            if a in cols:
-                return a
-        return None
-
-    col_map = {
-        "title":    find(["TI","Title","Article Title","title","PT"]),
-        "authors":  find(["AU","Authors","Author Names","AF","authors"]),
-        "year":     find(["PY","Year","Publication Year","year"]),
-        "journal":  find(["SO","Source Title","Journal","journal","JI"]),
-        "abstract": find(["AB","Abstract","abstract"]),
-        "doi":      find(["DI","DOI","doi"]),
-        "keywords": find(["DE","Author Keywords","Keywords","ID","keywords"]),
-    }
-
+    def fc(als): return next((a for a in als if a in cols), None)
+    cm = {"title": fc(["TI","Title","Article Title","title"]),
+          "authors": fc(["AU","Authors","AF","authors"]),
+          "year": fc(["PY","Year","Publication Year","year"]),
+          "journal": fc(["SO","Source Title","Journal","journal"]),
+          "abstract": fc(["AB","Abstract","abstract"]),
+          "doi": fc(["DI","DOI","doi"]),
+          "keywords": fc(["DE","Author Keywords","Keywords","ID","keywords"])}
     out = []
     for i, row in df.iterrows():
-        title = row.get(col_map["title"] or "__", "").strip()
-        if not title:
-            continue
-        year_s = row.get(col_map["year"] or "__", "")
-        try:
-            year = int(str(year_s).strip())
-        except Exception:
-            year = year_s
-        out.append(_make_record(
-            i, "JOUR", title,
-            row.get(col_map["authors"] or "__", ""),
-            year,
-            row.get(col_map["journal"] or "__", ""),
-            row.get(col_map["abstract"] or "__", ""),
-            row.get(col_map["doi"] or "__", ""),
-            "", row.get(col_map["keywords"] or "__", ""), "", ""
-        ))
-    return out, f"✓ Parsed {len(out)} records from CSV"
+        t = row.get(cm["title"] or "__","").strip()
+        if not t: continue
+        ys = row.get(cm["year"] or "__","")
+        try: year = int(str(ys).strip())
+        except: year = ys
+        out.append(_rec(i,"JOUR",t, row.get(cm["authors"] or "__",""), year,
+            row.get(cm["journal"] or "__",""), row.get(cm["abstract"] or "__",""),
+            row.get(cm["doi"] or "__",""), "", row.get(cm["keywords"] or "__",""),"",""))
+    return out, f"Parsed {len(out)} records"
 
-
-def parse_file(uploaded_file):
-    name = uploaded_file.name.lower()
-    try:
-        raw = uploaded_file.read().decode("utf-8", errors="replace")
-    except Exception as e:
-        return [], f"❌ Cannot read file: {e}"
-
-    if name.endswith(".ris"):
-        return parse_ris(raw)
-    elif name.endswith(".bib"):
-        return parse_bib(raw)
-    elif name.endswith(".csv"):
-        return parse_csv(raw)
+def parse_file(uf):
+    name = uf.name.lower()
+    try: raw = uf.read().decode("utf-8", errors="replace")
+    except Exception as e: return [], f"Cannot read: {e}"
+    if name.endswith(".ris"):   return parse_ris(raw)
+    elif name.endswith(".bib"): return parse_bib(raw)
+    elif name.endswith(".csv"): return parse_csv_file(raw)
     elif name.endswith(".txt"):
-        # WoS tab-separated
-        if raw.count("\t") > 10:
-            return parse_csv(raw.replace("\t", ","))
-        else:
-            return parse_ris(raw)
-    else:
-        return [], "❌ Unsupported format. Use .ris .bib .csv .txt"
+        return parse_csv_file(raw.replace("\t",",")) if raw.count("\t")>10 else parse_ris(raw)
+    return [], "Unsupported format — use .ris .bib .csv .txt"
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SESSION STATE
-# ══════════════════════════════════════════════════════════════════════════════
-
-if "papers" not in st.session_state:
-    st.session_state.papers = []
-if "keywords" not in st.session_state:
-    st.session_state.keywords = ["hydrogen", "workforce", "skills", "green jobs", "energy transition"]
-if "current_tab" not in st.session_state:
-    st.session_state.current_tab = 0
-if "import_log" not in st.session_state:
-    st.session_state.import_log = []
-if "dup_results" not in st.session_state:
-    st.session_state.dup_results = []
+# ══════════════════════════════════════════════════════════════
+# STATE
+# ══════════════════════════════════════════════════════════════
+for k, v in [("papers",[]),("keywords",["hydrogen","workforce","skills","green jobs","energy transition"]),
+              ("current_tab",0),("import_log",[]),("dup_results",[])]:
+    if k not in st.session_state: st.session_state[k] = v
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
 # HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
-
-def update_paper(paper_id, field, value):
+# ══════════════════════════════════════════════════════════════
+def upd(pid, f, v):
     for p in st.session_state.papers:
-        if p["id"] == paper_id:
-            p[field] = value
-            break
+        if p["id"]==pid: p[f]=v; break
 
-def papers_included_title():
-    return [p for p in st.session_state.papers if p.get("title_decision") == "include"]
+def ti():  return [p for p in st.session_state.papers if p.get("title_decision")=="include"]
+def ab():  return [p for p in st.session_state.papers if p.get("abstract_decision")=="include"]
+def ex():  return [p for p in ab() if p.get("key_findings")]
 
-def papers_included_abstract():
-    return [p for p in st.session_state.papers if p.get("abstract_decision") == "include"]
+def qs(p): return sum(p.get(k,0) for k in ["qa_obj","qa_method","qa_data","qa_bias","qa_rel"])
+def ql(s):
+    if s>=8:   return "High",   "pill-hq"
+    elif s>=5: return "Medium", "pill-mq"
+    else:      return "Low",    "pill-lq"
 
-def papers_with_extraction():
-    return [p for p in papers_included_abstract() if p.get("key_findings")]
-
-def quality_score(p):
-    return sum(p.get(k, 0) for k in ["qa_obj", "qa_method", "qa_data", "qa_bias", "qa_rel"])
-
-def quality_label(score):
-    if score >= 8:   return "High Quality",   "tag-high"
-    elif score >= 5: return "Medium Quality", "tag-med"
-    else:            return "Low Quality",    "tag-low"
-
-def highlight_text(text, keywords):
+def hltext(text, kws):
     if not text: return str(text)
-    result = str(text)
-    for kw in keywords:
-        if kw.strip():
-            result = re.compile(re.escape(kw.strip()), re.IGNORECASE).sub(
-                f'<span class="hl">{kw}</span>', result)
-    return result
+    r = str(text)
+    for kw in kws:
+        if kw.strip(): r = re.compile(re.escape(kw.strip()), re.IGNORECASE).sub(f'<span class="hl">{kw}</span>', r)
+    return r
 
-DOC_TYPE_LABELS = {
-    "JOUR": "Journal Article", "RPRT": "Report",
-    "ICOMM": "Web/Comm.", "HEAR": "Hearing",
-    "CONF": "Conference", "BOOK": "Book",
-    "CHAP": "Book Chapter", "MISC": "Misc",
-}
+DTL = {"JOUR":"Journal","RPRT":"Report","ICOMM":"Web","HEAR":"Hearing","CONF":"Conf.","BOOK":"Book","CHAP":"Chapter","MISC":"Misc."}
+EXCL = ["— select —","not empirical","not relevant topic","review article","wrong population","wrong study design","grey literature","language barrier","duplicate"]
 
-NO_DATA_HTML = """
-<div style="background:#161b22;border:1.5px dashed #374166;border-radius:10px;padding:3rem 2rem;text-align:center;margin:1rem 0;">
-    <div style="font-size:2.2rem;margin-bottom:0.75rem;">📂</div>
-    <div style="color:#e6edf3;font-size:1rem;margin-bottom:0.4rem;font-family:'DM Sans',sans-serif;">No data loaded yet</div>
-    <div style="color:#565f73;font-size:0.72rem;font-family:'IBM Plex Mono',monospace;">Go to Import (Tab 01) and upload your .ris / .bib / .csv file</div>
-</div>
-"""
+def sh(label, accent=""):
+    acc_html = f'<span class="sh-acc">{accent}</span>' if accent else ""
+    st.markdown(f'<div class="sh">{acc_html}{label}</div>', unsafe_allow_html=True)
 
-EXCL_REASONS = [
-    "— select reason —", "not empirical", "not relevant topic",
-    "review article", "wrong population", "wrong study design",
-    "grey literature excluded", "language not supported", "duplicate",
-]
+def pg(step, title_plain, title_em="", desc=""):
+    em_part = f"<em>{title_em}</em>" if title_em else ""
+    st.markdown(f"""
+    <div class="pg">
+      <div class="pg-step">{step}</div>
+      <div class="pg-h1">{title_plain}{em_part}</div>
+      {"<div class='pg-desc'>"+desc+"</div>" if desc else ""}
+    </div>""", unsafe_allow_html=True)
+
+def empty_st(title="No data loaded", sub="Go to Import and upload your reference file"):
+    st.markdown(f"""
+    <div class="empty-st">
+      <div class="empty-glyph">◈</div>
+      <div class="empty-title">{title}</div>
+      <div class="empty-sub">{sub}</div>
+    </div>""", unsafe_allow_html=True)
+
+def mc_row(items, cols=4):
+    cls = f"mc-row mc-row-{min(cols,5)}"
+    inner = "".join([f'<div class="mc"><div class="mc-val {c}">{v}</div><div class="mc-key">{k}</div></div>' for k,v,c in items])
+    st.markdown(f'<div class="{cls}">{inner}</div>', unsafe_allow_html=True)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
 # SIDEBAR
-# ══════════════════════════════════════════════════════════════════════════════
-
+# ══════════════════════════════════════════════════════════════
 papers = st.session_state.papers
 n_total = len(papers)
+n_ti, n_ab, n_ex = len(ti()), len(ab()), len(ex())
 
 with st.sidebar:
-    st.markdown("""
-    <div class="brand-logo">SLR·Studio</div>
-    <div class="brand-sub">Systematic Literature Review</div>
-    <div class="brand-dev">developed by <span>Bahas Kebijakan</span></div>
+    st.markdown(f"""
+    <div class="sb-logo-wrap">
+      <div class="sb-logotype">SLR<em>·</em>Studio</div>
+      <div class="sb-tagline">Systematic Literature Review</div>
+      <div class="sb-dev">by <b>Bahas Kebijakan</b></div>
+    </div>
     """, unsafe_allow_html=True)
-    st.markdown("---")
 
-    n_ti  = len(papers_included_title())
-    n_ab  = len(papers_included_abstract())
-    n_ex  = len(papers_with_extraction())
+    st.markdown('<div class="sb-nav-section">— Workflow</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="section-label">Workflow</div>', unsafe_allow_html=True)
+    NAV = [("01","Import"),("02","Deduplicate"),("03","Title Screen"),("04","Abstract Screen"),
+           ("05","Full Text"),("06","Data Extraction"),("07","Quality Assess."),
+           ("08","Evidence Synthesis"),("09","PRISMA Diagram"),("10","Export")]
+    CNTS = [f"{n_total} records" if n_total else "empty", "",
+            f"{len([p for p in papers if not p.get('title_decision')])} pending",
+            f"{len([p for p in ti() if not p.get('abstract_decision')])} pending",
+            f"{n_ti} papers", f"{n_ab} eligible", f"{n_ex} ready", "", "", ""]
 
-    NAV = [
-        ("01", "📥 Import",            f"{n_total} records" if n_total else "no data"),
-        ("02", "⊛ Deduplicate",         ""),
-        ("03", "▤ Title Screen",        f"{len([p for p in papers if not p.get('title_decision')])} pending"),
-        ("04", "◫ Abstract Screen",     f"{len([p for p in papers_included_title() if not p.get('abstract_decision')])} pending"),
-        ("05", "⬡ Full Text",           f"{n_ti} papers"),
-        ("06", "◈ Data Extraction",     f"{n_ab} eligible"),
-        ("07", "✦ Quality Assessment",  f"{n_ex} ready"),
-        ("08", "⬡ Evidence Synthesis",  ""),
-        ("09", "⊞ PRISMA Diagram",      ""),
-        ("10", "↓ Export",              ""),
-    ]
-
-    for i, (step, label, count) in enumerate(NAV):
-        lbl = f"{label}  {count}" if count else label
+    for i,(step,label) in enumerate(NAV):
+        cnt = CNTS[i]
+        lbl = f"{step}  {label}  ·  {cnt}" if cnt else f"{step}  {label}"
         if st.button(lbl, key=f"nav_{i}", use_container_width=True):
-            st.session_state.current_tab = i
-            st.rerun()
+            st.session_state.current_tab = i; st.rerun()
 
-    st.markdown("---")
-    prog = n_ab / n_total if n_total else 0
-    st.progress(prog)
-    st.markdown(
-        f'<div style="font-family:IBM Plex Mono,monospace;font-size:0.62rem;color:#565f73;margin-top:0.3rem;">'
-        f'{n_ab}/{n_total} papers included</div>', unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.58rem;color:#374166;text-align:center;">PRISMA 2020 Compliant<br/>© Bahas Kebijakan</div>', unsafe_allow_html=True)
+    pct = int((n_ab/n_total)*100) if n_total else 0
+    st.markdown(f"""
+    <div class="sb-stats">
+      <div class="sb-stat-row"><span class="sb-stat-key">Records</span><span class="sb-stat-val">{n_total}</span></div>
+      <div class="sb-stat-row"><span class="sb-stat-key">Title Incl.</span><span class="sb-stat-val">{n_ti}</span></div>
+      <div class="sb-stat-row"><span class="sb-stat-key">Final Incl.</span><span class="sb-stat-val gold">{n_ab}</span></div>
+      <div class="sb-stat-row"><span class="sb-stat-key">Extracted</span><span class="sb-stat-val">{n_ex}</span></div>
+      <div class="sb-prog"><div class="sb-prog-fill" style="width:{pct}%"></div></div>
+      <div class="sb-pct"><span>Review Progress</span><span>{pct}%</span></div>
+    </div>
+    <div style="padding:.4rem 1.25rem .75rem;font-family:'Space Mono',monospace;font-size:.5rem;color:var(--border2);text-transform:uppercase;letter-spacing:.12em;">
+      PRISMA 2020 Compliant
+    </div>""", unsafe_allow_html=True)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TABS
-# ══════════════════════════════════════════════════════════════════════════════
-
+# ══════════════════════════════════════════════════════════════
+# TOP BAR (inside main area)
+# ══════════════════════════════════════════════════════════════
 tab = st.session_state.current_tab
 papers = st.session_state.papers
 
+st.markdown(f"""
+<div class="topbar">
+  <div class="topbar-brand">
+    <span class="topbar-logo">SLR<em>·</em>Studio</span>
+    <span class="topbar-sep"></span>
+    <span class="topbar-subtitle">Bahas Kebijakan · PRISMA 2020</span>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-stat">
+      <span class="topbar-stat-val">{n_total}</span>
+      <span class="topbar-stat-key">Records</span>
+    </div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-stat">
+      <span class="topbar-stat-val">{n_ti}</span>
+      <span class="topbar-stat-key">Title Incl.</span>
+    </div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-stat">
+      <span class="topbar-stat-val gold">{n_ab}</span>
+      <span class="topbar-stat-key">Final Incl.</span>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 0 — IMPORT
-# ─────────────────────────────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════
+# PAGE 0 — IMPORT
+# ══════════════════════════════════════════════════════════════
 if tab == 0:
-    st.markdown("# Data Import")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 01 — import & standardise records from reference managers</div>', unsafe_allow_html=True)
+    pg("Module 01", "Data ", "Import",
+       "Import and standardise reference records from Mendeley, Zotero, Scopus, Web of Science, or any PRISMA-compatible export.")
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.metric("Total Records", n_total)
-    with c2: st.metric("Sources Loaded", len(st.session_state.import_log))
-    with c3: st.metric("Journal Articles", len([p for p in papers if p.get("doc_type") == "JOUR"]))
-    with c4: st.metric("Reports / Other", len([p for p in papers if p.get("doc_type") not in ("JOUR","")]))
+    n_jour = len([p for p in papers if p.get("doc_type")=="JOUR"])
+    n_rpt  = len([p for p in papers if p.get("doc_type") not in ("JOUR","")])
+    mc_row([("Total Records", n_total, ""),("Journal Articles", n_jour, "blue"),
+            ("Reports & Other", n_rpt, ""),("Sources Loaded", len(st.session_state.import_log), "gold")], 4)
 
-    st.markdown("---")
-    col_l, col_r = st.columns([1.3, 1])
+    col_l, col_r = st.columns([1.4, 1], gap="large")
 
     with col_l:
-        st.markdown('<div class="section-label">Upload Reference File</div>', unsafe_allow_html=True)
-        source_db = st.selectbox("Source database", [
-            "Mendeley (.ris)", "Zotero (.ris / .bib)", "Scopus (.bib / .csv)",
-            "Web of Science (.txt / .csv)", "Dimensions (.bib)", "EndNote (.ris)",
-        ])
-        uploaded = st.file_uploader("Drop file here", type=["ris","bib","csv","txt"],
-                                     label_visibility="collapsed")
+        sh("Upload Reference File", "◈ ")
+        src = st.selectbox("Source database", ["Mendeley (.ris)","Zotero (.ris / .bib)",
+              "Scopus (.bib / .csv)","Web of Science (.txt / .csv)","Dimensions (.bib)","EndNote (.ris)"])
+        uf = st.file_uploader("Drop file — .ris · .bib · .csv · .txt", type=["ris","bib","csv","txt"])
 
-        if uploaded:
-            st.markdown(f'<div style="color:#3fb950;font-family:IBM Plex Mono,monospace;font-size:0.75rem;">📄 {uploaded.name} &nbsp;({uploaded.size/1024:.1f} KB)</div>', unsafe_allow_html=True)
+        if uf:
+            st.success(f"**{uf.name}** — {uf.size/1024:.1f} KB detected")
             b1, b2 = st.columns(2)
             with b1:
-                if st.button("⬆ Add to Library", use_container_width=True):
+                if st.button("Add to Library", use_container_width=True):
                     with st.spinner("Parsing…"):
-                        new_records, msg = parse_file(uploaded)
-                    if new_records:
-                        offset = len(st.session_state.papers)
-                        for j, r in enumerate(new_records):
-                            r["id"] = f"P{str(offset+j+1).zfill(3)}"
-                        st.session_state.papers.extend(new_records)
-                        st.session_state.import_log.append({
-                            "file": uploaded.name, "source": source_db,
-                            "records": len(new_records),
-                            "timestamp": datetime.now().strftime("%H:%M:%S")
-                        })
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
+                        recs, msg = parse_file(uf)
+                    if recs:
+                        off = len(st.session_state.papers)
+                        for j,r in enumerate(recs): r["id"] = f"P{str(off+j+1).zfill(3)}"
+                        st.session_state.papers.extend(recs)
+                        st.session_state.import_log.append({"file":uf.name,"source":src,"n":len(recs),"time":datetime.now().strftime("%H:%M")})
+                        st.success(f"✓ {msg}"); st.rerun()
+                    else: st.error(msg)
             with b2:
-                if st.button("🔄 Replace All", use_container_width=True):
+                if st.button("Replace All", use_container_width=True):
                     with st.spinner("Parsing…"):
-                        new_records, msg = parse_file(uploaded)
-                    if new_records:
-                        st.session_state.papers = new_records
-                        st.session_state.import_log = [{"file": uploaded.name, "source": source_db, "records": len(new_records), "timestamp": datetime.now().strftime("%H:%M:%S")}]
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
-        else:
-            st.markdown("""
-            <div style="background:#1c2333;border:1.5px dashed #374166;border-radius:8px;padding:2rem;text-align:center;margin-top:0.5rem;">
-                <div style="font-size:1.8rem;margin-bottom:0.5rem;">📂</div>
-                <div style="color:#8b949e;font-size:0.85rem;margin-bottom:0.3rem;">Drop file here or click Browse</div>
-                <div style="color:#374166;font-size:0.68rem;font-family:IBM Plex Mono,monospace;">.ris &nbsp;·&nbsp; .bib &nbsp;·&nbsp; .csv &nbsp;·&nbsp; .txt</div>
-            </div>
-            """, unsafe_allow_html=True)
+                        recs, msg = parse_file(uf)
+                    if recs:
+                        st.session_state.papers = recs
+                        st.session_state.import_log = [{"file":uf.name,"source":src,"n":len(recs),"time":datetime.now().strftime("%H:%M")}]
+                        st.success(f"✓ {msg}"); st.rerun()
+                    else: st.error(msg)
 
         if papers:
-            st.markdown("")
-            if st.button("🗑 Clear All Records", use_container_width=True):
-                st.session_state.papers = []
-                st.session_state.import_log = []
-                st.rerun()
+            if st.button("Clear All Records", use_container_width=True):
+                st.session_state.papers = []; st.session_state.import_log = []; st.rerun()
+
+        if papers:
+            st.markdown("&nbsp;", unsafe_allow_html=True)
+            sh("Keyword Highlights", "◈ ")
+            kw_new = st.text_input("Add keyword", placeholder="e.g. hydrogen, workforce…")
+            if st.button("Add", use_container_width=True):
+                if kw_new.strip() and kw_new.strip() not in st.session_state.keywords:
+                    st.session_state.keywords.append(kw_new.strip()); st.rerun()
+            if st.session_state.keywords:
+                kw_html = " ".join([f'<span class="kw-tag">{k}</span>' for k in st.session_state.keywords])
+                st.markdown(kw_html, unsafe_allow_html=True)
+                rm = st.selectbox("Remove keyword", ["— keep all —"] + st.session_state.keywords)
+                if rm != "— keep all —":
+                    st.session_state.keywords.remove(rm); st.rerun()
 
     with col_r:
-        st.markdown('<div class="section-label">Import Log</div>', unsafe_allow_html=True)
+        sh("Import Log", "◈ ")
         if st.session_state.import_log:
-            st.dataframe(pd.DataFrame(st.session_state.import_log), use_container_width=True, hide_index=True)
+            for lg in st.session_state.import_log:
+                st.markdown(f"""
+                <div class="import-row">
+                  <div>
+                    <div class="import-fn">{lg['file']}</div>
+                    <div class="import-src">{lg['source']} · {lg['time']}</div>
+                  </div>
+                  <div class="import-n">{lg['n']}</div>
+                </div>""", unsafe_allow_html=True)
         else:
-            st.caption("No imports yet.")
+            st.markdown('<div style="font-family:\'Space Mono\',monospace;font-size:.65rem;color:var(--border2);padding:.5rem 0;">No imports yet — upload a file to begin.</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="section-label" style="margin-top:1.2rem;">Supported Formats</div>', unsafe_allow_html=True)
+        st.markdown("&nbsp;", unsafe_allow_html=True)
+        sh("Supported Formats", "◈ ")
         st.markdown("""
-| Format | Source | Coverage |
-|--------|--------|----------|
-| `.ris` | Mendeley, Zotero, EndNote | Full incl. RPRT, ICOMM, abstract, notes |
-| `.bib` | Scopus, Dimensions, Zotero | Full — nested braces handled |
-| `.csv` | Web of Science, Scopus | Auto-detects column headers |
-| `.txt` | Web of Science | Tab-separated or ISI format |
+| Format | Sources |
+|--------|---------|
+| `.ris` | Mendeley, Zotero, EndNote |
+| `.bib` | Scopus, Dimensions, Zotero |
+| `.csv` | Web of Science, Scopus |
+| `.txt` | Web of Science (ISI / tab-sep.) |
         """)
 
-        st.markdown('<div class="section-label" style="margin-top:1.2rem;">Highlight Keywords</div>', unsafe_allow_html=True)
-        new_kw = st.text_input("Add keyword", placeholder="e.g. hydrogen, workforce…")
-        if st.button("+ Add", use_container_width=True):
-            if new_kw.strip() and new_kw.strip() not in st.session_state.keywords:
-                st.session_state.keywords.append(new_kw.strip())
-                st.rerun()
-        if st.session_state.keywords:
-            st.markdown("  ·  ".join([f"`{k}`" for k in st.session_state.keywords]))
-            rm = st.selectbox("Remove", ["— keep all —"] + st.session_state.keywords)
-            if rm != "— keep all —":
-                st.session_state.keywords.remove(rm)
-                st.rerun()
-
     if papers:
-        st.markdown("---")
-        st.markdown('<div class="section-label">Imported Records Preview</div>', unsafe_allow_html=True)
-        type_counts = {}
-        for p in papers:
-            t = DOC_TYPE_LABELS.get(p.get("doc_type",""), p.get("doc_type","?"))
-            type_counts[t] = type_counts.get(t, 0) + 1
-        st.markdown("**Document types:** " + "  ·  ".join([f"`{k}` ({v})" for k,v in sorted(type_counts.items(), key=lambda x:-x[1])]))
-
+        st.markdown("&nbsp;", unsafe_allow_html=True)
+        sh("Records Preview", "◈ ")
         prev = pd.DataFrame([{
             "ID": p["id"],
-            "Type": DOC_TYPE_LABELS.get(p.get("doc_type",""), p.get("doc_type","")),
-            "Title": p["title"][:70]+"…" if len(p.get("title",""))>70 else p.get("title",""),
+            "Type": DTL.get(p.get("doc_type",""), p.get("doc_type","")),
+            "Title": p["title"][:72]+"…" if len(p.get("title",""))>72 else p.get("title",""),
             "Authors": p.get("authors","")[:40]+"…" if len(p.get("authors",""))>40 else p.get("authors",""),
             "Year": p.get("year",""),
-            "Source": p.get("journal","")[:35]+"…" if len(p.get("journal",""))>35 else p.get("journal",""),
+            "Source": p.get("journal","")[:38]+"…" if len(p.get("journal",""))>38 else p.get("journal",""),
             "DOI": "✓" if p.get("doi") else "—",
             "Abstract": "✓" if p.get("abstract") else "—",
         } for p in papers])
         st.dataframe(prev, use_container_width=True, hide_index=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 1 — DEDUPLICATION
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 1 — DEDUPLICATION
+# ══════════════════════════════════════════════════════════════
 elif tab == 1:
-    st.markdown("# Deduplication")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 02 — remove duplicate records across databases</div>', unsafe_allow_html=True)
+    pg("Module 02", "De", "duplication",
+       "Identify and remove duplicate records by exact DOI match and fuzzy title similarity.")
 
     if not papers:
-        st.markdown(NO_DATA_HTML, unsafe_allow_html=True)
-        st.stop()
+        empty_st(); st.stop()
 
-    def find_duplicates(records, doi_match, title_sim, threshold):
+    def find_dups(records, doi_m, title_s, thresh):
         from difflib import SequenceMatcher
-        dups = []
-        seen_doi, seen_title = {}, {}
+        dups, seen_doi, seen_title = [], {}, {}
         for p in records:
             found = False
-            if doi_match and p.get("doi"):
+            if doi_m and p.get("doi"):
                 doi = p["doi"].strip().lower()
                 if doi in seen_doi:
-                    dups.append({"Method":"DOI match","Keep":seen_doi[doi],"Remove":p["id"],"Score":"1.00"})
-                    found = True
-                else:
-                    seen_doi[doi] = p["id"]
-            if not found and title_sim and p.get("title"):
+                    dups.append({"Method":"DOI exact","Keep":seen_doi[doi],"Remove":p["id"],"Score":"1.00"}); found=True
+                else: seen_doi[doi] = p["id"]
+            if not found and title_s and p.get("title"):
                 tn = re.sub(r'[^\w\s]','', p["title"].lower().strip())
                 for pt, pid in seen_title.items():
-                    r = SequenceMatcher(None, tn, pt).ratio()
-                    if r >= threshold:
-                        dups.append({"Method":f"Title sim. ({r:.2f})","Keep":pid,"Remove":p["id"],"Score":f"{r:.2f}"})
-                        found = True
-                        break
-                if not found:
-                    seen_title[tn] = p["id"]
+                    r2 = SequenceMatcher(None, tn, pt).ratio()
+                    if r2 >= thresh:
+                        dups.append({"Method":f"Title ({r2:.2f})","Keep":pid,"Remove":p["id"],"Score":f"{r2:.2f}"}); found=True; break
+                if not found: seen_title[tn] = p["id"]
         return dups
 
-    c1, c2, c3 = st.columns(3)
-    with c1: st.metric("Records Before", len(papers))
+    mc_row([("Before Deduplication", n_total, ""),
+            ("Duplicates Found", len(st.session_state.dup_results), "red" if st.session_state.dup_results else ""),
+            ("Unique Records", n_total - len(st.session_state.dup_results), "green")], 3)
 
-    col_l, col_r = st.columns(2)
+    col_l, col_r = st.columns(2, gap="large")
     with col_l:
-        st.markdown('<div class="section-label">Settings</div>', unsafe_allow_html=True)
-        doi_m  = st.checkbox("DOI exact match", value=True)
-        title_s = st.checkbox("Title similarity", value=True)
-        thresh = st.slider("Threshold", 0.70, 1.00, 0.90, 0.05) if title_s else 0.90
-        if st.button("▶ Run Deduplication", use_container_width=True):
-            st.session_state.dup_results = find_duplicates(papers, doi_m, title_s, thresh)
+        sh("Detection Settings", "◈ ")
+        doi_m = st.checkbox("DOI exact match", value=True)
+        title_s = st.checkbox("Title similarity matching", value=True)
+        thresh = st.slider("Similarity threshold", 0.70, 1.00, 0.90, 0.05) if title_s else 0.90
+        if st.button("Run Deduplication", use_container_width=True):
+            st.session_state.dup_results = find_dups(papers, doi_m, title_s, thresh)
+            st.rerun()
 
     with col_r:
-        st.markdown('<div class="section-label">Duplicate Log</div>', unsafe_allow_html=True)
+        sh("Duplicate Log", "◈ ")
         dups = st.session_state.dup_results
         if dups:
-            with c2: st.metric("Duplicates Found", len(dups))
-            with c3: st.metric("Unique Records",   len(papers)-len(dups))
             st.dataframe(pd.DataFrame(dups), use_container_width=True, hide_index=True)
-            if st.button(f"🗑 Remove {len(dups)} duplicate(s)", use_container_width=True):
+            if st.button(f"Remove {len(dups)} duplicate(s)", use_container_width=True):
                 ids_rm = {d["Remove"] for d in dups}
                 st.session_state.papers = [p for p in papers if p["id"] not in ids_rm]
                 st.session_state.dup_results = []
-                st.success(f"✓ {len(ids_rm)} duplicate(s) removed.")
-                st.rerun()
+                st.success(f"✓ Removed {len(ids_rm)} records"); st.rerun()
         else:
-            with c2: st.metric("Duplicates Found","—")
-            with c3: st.metric("Unique Records", len(papers))
             st.info("Run deduplication to detect duplicates.")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 2 — TITLE SCREENING
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 2 — TITLE SCREENING
+# ══════════════════════════════════════════════════════════════
 elif tab == 2:
-    st.markdown("# Title Screening")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 03 — first-pass relevance screening by title</div>', unsafe_allow_html=True)
+    pg("Module 03", "Title ", "Screening",
+       "First-pass relevance screening. Include, exclude, or flag papers based on title alone.")
 
     if not papers:
-        st.markdown(NO_DATA_HTML, unsafe_allow_html=True)
-        st.stop()
+        empty_st(); st.stop()
 
     n_inc  = len([p for p in papers if p.get("title_decision")=="include"])
     n_exc  = len([p for p in papers if p.get("title_decision")=="exclude"])
     n_may  = len([p for p in papers if p.get("title_decision")=="maybe"])
     n_pend = len([p for p in papers if not p.get("title_decision")])
 
-    c1,c2,c3,c4,c5 = st.columns(5)
-    with c1: st.metric("Total",      len(papers))
-    with c2: st.metric("✅ Include",  n_inc)
-    with c3: st.metric("❌ Exclude",  n_exc)
-    with c4: st.metric("🔶 Maybe",   n_may)
-    with c5: st.metric("⏳ Pending",  n_pend)
+    mc_row([("Total",n_total,""),("Included",n_inc,"green"),("Excluded",n_exc,"red"),("Maybe",n_may,"gold"),("Pending",n_pend,"")], 5)
 
-    fc, sc = st.columns([1,2])
-    with fc: show_f = st.selectbox("Show", ["All","Pending only","Included","Excluded","Maybe"])
-    with sc: q = st.text_input("Search title", placeholder="Filter…", label_visibility="collapsed")
-
-    st.info("💡 Include / Exclude / Maybe — use 'Maybe' for borderline papers to revisit later.")
+    fc, sc = st.columns([1,2], gap="medium")
+    with fc:
+        show_f = st.selectbox("Filter", ["All","Pending","Included","Excluded","Maybe"])
+    with sc:
+        q = st.text_input("Search", placeholder="Filter by title keyword…", label_visibility="collapsed")
 
     filtered = papers
-    if show_f == "Pending only":   filtered = [p for p in papers if not p.get("title_decision")]
-    elif show_f == "Included":     filtered = [p for p in papers if p.get("title_decision")=="include"]
-    elif show_f == "Excluded":     filtered = [p for p in papers if p.get("title_decision")=="exclude"]
-    elif show_f == "Maybe":        filtered = [p for p in papers if p.get("title_decision")=="maybe"]
+    if show_f == "Pending":   filtered = [p for p in papers if not p.get("title_decision")]
+    elif show_f == "Included": filtered = [p for p in papers if p.get("title_decision")=="include"]
+    elif show_f == "Excluded": filtered = [p for p in papers if p.get("title_decision")=="exclude"]
+    elif show_f == "Maybe":    filtered = [p for p in papers if p.get("title_decision")=="maybe"]
     if q: filtered = [p for p in filtered if q.lower() in p.get("title","").lower()]
 
-    st.caption(f"Showing {len(filtered)} of {len(papers)} records")
+    st.caption(f"{len(filtered)} of {len(papers)} records")
     st.markdown("---")
 
     for p in filtered:
+        dec_class = {"include":"pcard-inc","exclude":"pcard-exc","maybe":"pcard-may"}.get(p.get("title_decision",""),"")
+        badge = DTL.get(p.get("doc_type",""), p.get("doc_type","?"))
+        hl_t = hltext(p.get("title",""), st.session_state.keywords)
+
         ci, cd = st.columns([4,2])
         with ci:
-            hl = highlight_text(p.get("title",""), st.session_state.keywords)
-            badge = DOC_TYPE_LABELS.get(p.get("doc_type",""), p.get("doc_type",""))
-            st.markdown(f'<div class="paper-title"><span class="tag-type">{badge}</span>&nbsp; {hl}</div>'
-                        f'<div class="paper-meta">{p["id"]} · {p.get("authors","—")[:50]} · {p.get("year","?")} · {p.get("journal","—")[:50]}</div>',
-                        unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="pcard {dec_class}">
+              <span class="pcard-type">{badge}</span>
+              <div class="pcard-title">{hl_t}</div>
+              <div class="pcard-meta">{p['id']} · {p.get('authors','—')[:55]} · {p.get('year','?')} · {p.get('journal','—')[:50]}</div>
+            </div>""", unsafe_allow_html=True)
         with cd:
             cur = p.get("title_decision") or "include"
             opts = ["include","exclude","maybe"]
             dec = st.radio("", opts, index=opts.index(cur) if cur in opts else 0,
                            horizontal=True, key=f"td_{p['id']}", label_visibility="collapsed")
             if dec != p.get("title_decision"):
-                update_paper(p["id"], "title_decision", dec)
-                st.rerun()
-        st.divider()
+                upd(p["id"],"title_decision",dec); st.rerun()
+        st.markdown('<hr style="margin:.35rem 0;">', unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 3 — ABSTRACT SCREENING
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 3 — ABSTRACT SCREENING
+# ══════════════════════════════════════════════════════════════
 elif tab == 3:
-    st.markdown("# Abstract Screening")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 04 — eligibility assessment by abstract</div>', unsafe_allow_html=True)
+    pg("Module 04", "Abstract ", "Screening",
+       "Full eligibility assessment. Read abstracts and apply inclusion/exclusion criteria.")
 
-    ti = papers_included_title()
-    if not ti:
-        st.warning("No papers passed title screening yet.")
-        st.stop()
+    title_passed = ti()
+    if not title_passed:
+        empty_st("No papers passed title screening", "Complete Title Screening first"); st.stop()
 
-    n_el  = len(papers_included_abstract())
-    n_exc = len([p for p in ti if p.get("abstract_decision")=="exclude"])
-    n_pe  = len([p for p in ti if not p.get("abstract_decision")])
+    n_el  = len(ab())
+    n_exc = len([p for p in title_passed if p.get("abstract_decision")=="exclude"])
+    n_pe  = len([p for p in title_passed if not p.get("abstract_decision")])
 
-    c1,c2,c3,c4 = st.columns(4)
-    with c1: st.metric("From Title Screen", len(ti))
-    with c2: st.metric("✅ Eligible",        n_el)
-    with c3: st.metric("❌ Excluded",         n_exc)
-    with c4: st.metric("⏳ Pending",          n_pe)
+    mc_row([("From Title Screen",len(title_passed),""),("Eligible",n_el,"green"),
+            ("Excluded",n_exc,"red"),("Pending",n_pe,"")], 4)
 
-    show_f = st.selectbox("Show", ["All","Pending only","Included","Excluded"])
-    filtered = ti
-    if show_f == "Pending only": filtered = [p for p in ti if not p.get("abstract_decision")]
-    elif show_f == "Included":   filtered = [p for p in ti if p.get("abstract_decision")=="include"]
-    elif show_f == "Excluded":   filtered = [p for p in ti if p.get("abstract_decision")=="exclude"]
+    show_f = st.selectbox("Filter", ["All","Pending","Included","Excluded"])
+    filtered = title_passed
+    if show_f == "Pending":  filtered = [p for p in title_passed if not p.get("abstract_decision")]
+    elif show_f == "Included": filtered = [p for p in title_passed if p.get("abstract_decision")=="include"]
+    elif show_f == "Excluded": filtered = [p for p in title_passed if p.get("abstract_decision")=="exclude"]
 
     st.markdown("---")
 
     for p in filtered:
-        bc = {"include":"#3fb950","exclude":"#f85149","maybe":"#f0a500"}.get(p.get("abstract_decision"),"#2a3147")
-        has_abs = bool(p.get("abstract","").strip())
-        abs_text = p.get("abstract","") if has_abs else "_No abstract available for this record._"
+        dec_class = {"include":"pcard-inc","exclude":"pcard-exc","maybe":"pcard-may"}.get(p.get("abstract_decision",""),"")
+        abs_text = p.get("abstract","") or "_No abstract available for this record._"
+        hl_t = hltext(p.get("title",""), st.session_state.keywords)
+        hl_a = hltext(abs_text, st.session_state.keywords)
+        badge = DTL.get(p.get("doc_type",""), p.get("doc_type","?"))
 
         st.markdown(f"""
-        <div class="paper-card" style="border-left:3px solid {bc};">
-            <div class="paper-title">{highlight_text(p.get('title',''), st.session_state.keywords)}</div>
-            <div class="paper-meta">{p['id']} · {p.get('authors','—')[:60]} · {p.get('year','?')} · {p.get('journal','—')}</div>
-            <div class="paper-abstract">{highlight_text(abs_text, st.session_state.keywords)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        <div class="pcard {dec_class}">
+          <span class="pcard-type">{badge}</span>
+          <div class="pcard-title">{hl_t}</div>
+          <div class="pcard-meta">{p['id']} · {p.get('authors','—')[:60]} · {p.get('year','?')} · {p.get('journal','—')}</div>
+          <div class="pcard-abstract">{hl_a}</div>
+        </div>""", unsafe_allow_html=True)
 
         cd, cr, ck = st.columns([2,2,2])
         with cd:
@@ -794,395 +1044,364 @@ elif tab == 3:
             dec = st.radio("", opts, index=opts.index(cur) if cur in opts else 0,
                            horizontal=True, key=f"ad_{p['id']}", label_visibility="collapsed")
             if dec != p.get("abstract_decision"):
-                update_paper(p["id"], "abstract_decision", dec)
-                st.rerun()
+                upd(p["id"],"abstract_decision",dec); st.rerun()
         with cr:
             if p.get("abstract_decision") == "exclude":
                 cur_r = p.get("exclusion_reason","")
-                ri = EXCL_REASONS.index(cur_r) if cur_r in EXCL_REASONS else 0
-                reason = st.selectbox("Reason", EXCL_REASONS, index=ri,
-                                      key=f"er_{p['id']}", label_visibility="collapsed")
-                if reason != "— select reason —" and reason != p.get("exclusion_reason"):
-                    update_paper(p["id"], "exclusion_reason", reason)
+                ri = EXCL.index(cur_r) if cur_r in EXCL else 0
+                reason = st.selectbox("Reason", EXCL, index=ri, key=f"er_{p['id']}", label_visibility="collapsed")
+                if reason != "— select —" and reason != p.get("exclusion_reason"):
+                    upd(p["id"],"exclusion_reason",reason)
         with ck:
             if p.get("keywords"):
                 kws = [k.strip() for k in re.split(r'[;,]', p["keywords"]) if k.strip()][:5]
-                st.markdown(" ".join([f'<span style="font-size:0.62rem;font-family:IBM Plex Mono,monospace;color:#565f73;background:#1c2333;border:1px solid #2a3147;border-radius:3px;padding:1px 6px;">{k}</span>' for k in kws]), unsafe_allow_html=True)
-        st.divider()
+                st.markdown(" ".join([f'<span class="kw-tag">{k}</span>' for k in kws]), unsafe_allow_html=True)
+        st.markdown('<hr style="margin:.4rem 0;">', unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 4 — FULL TEXT
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 4 — FULL TEXT
+# ══════════════════════════════════════════════════════════════
 elif tab == 4:
-    st.markdown("# Full Text Library")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 05 — manage and review full-text documents</div>', unsafe_allow_html=True)
+    pg("Module 05", "Full Text ", "Library",
+       "Manage and annotate full-text documents for included papers.")
 
-    ab = papers_included_abstract()
-    if not ab:
-        st.warning("No papers passed abstract screening yet.")
-        st.stop()
+    abs_inc = ab()
+    if not abs_inc:
+        empty_st("No papers passed abstract screening", "Complete Abstract Screening first"); st.stop()
 
-    st.info(f"📄 {len(ab)} papers eligible for full-text review.")
-    pdfs = st.file_uploader("Upload PDFs", type=["pdf"], accept_multiple_files=True, label_visibility="collapsed")
-    if pdfs:
-        st.success(f"✓ {len(pdfs)} PDF(s) uploaded this session")
+    mc_row([("Eligible Papers", len(abs_inc),"gold"),("With Mendeley Path",len([p for p in abs_inc if p.get("local_file")]),"green"),("Awaiting Upload",len([p for p in abs_inc if not p.get("local_file")]),"")], 3)
 
-    st.markdown("---")
-    ft_df = pd.DataFrame([{
-        "ID": p["id"],
-        "Title": p["title"][:65]+"…" if len(p.get("title",""))>65 else p.get("title",""),
-        "Year": p.get("year",""),
-        "Source": p.get("journal","")[:40],
-        "DOI": p.get("doi","—"),
-        "Mendeley path": "✓" if p.get("local_file") else "—",
-    } for p in ab])
-    st.dataframe(ft_df, use_container_width=True, hide_index=True)
+    col_l, col_r = st.columns(2, gap="large")
+    with col_l:
+        sh("Upload PDFs", "◈ ")
+        pdfs = st.file_uploader("Upload PDF files (multiple allowed)", type=["pdf"], accept_multiple_files=True)
+        if pdfs:
+            st.success(f"✓ {len(pdfs)} PDF(s) uploaded this session")
+        else:
+            st.caption("PDFs are not stored between sessions. Re-upload each time.")
+    with col_r:
+        sh("Eligible Papers List", "◈ ")
+
+    st.markdown("&nbsp;", unsafe_allow_html=True)
+    ft = pd.DataFrame([{"ID":p["id"],"Title":p["title"][:65]+"…" if len(p.get("title",""))>65 else p.get("title",""),
+        "Year":p.get("year",""),"Source":p.get("journal","")[:40],"DOI":p.get("doi","—"),
+        "Path":"✓" if p.get("local_file") else "—"} for p in abs_inc])
+    st.dataframe(ft, use_container_width=True, hide_index=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 5 — DATA EXTRACTION
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 5 — DATA EXTRACTION
+# ══════════════════════════════════════════════════════════════
 elif tab == 5:
-    st.markdown("# Data Extraction")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 06 — structured extraction of study characteristics</div>', unsafe_allow_html=True)
+    pg("Module 06", "Data ", "Extraction",
+       "Structured extraction of study characteristics: location, methodology, dataset, findings, and policy implications.")
 
-    ab = papers_included_abstract()
-    if not ab:
-        st.warning("No papers passed abstract screening yet.")
-        st.stop()
+    abs_inc = ab()
+    if not abs_inc:
+        empty_st("No papers passed abstract screening", "Complete Abstract Screening first"); st.stop()
 
-    n_done = len([p for p in ab if p.get("key_findings")])
-    c1,c2,c3 = st.columns(3)
-    with c1: st.metric("Eligible", len(ab))
-    with c2: st.metric("✅ Extracted", n_done)
-    with c3: st.metric("⏳ Pending", len(ab)-n_done)
+    n_done = len([p for p in abs_inc if p.get("key_findings")])
+    mc_row([("Eligible",len(abs_inc),""),("Extracted",n_done,"green"),("Pending",len(abs_inc)-n_done,"")], 3)
 
-    vt, et = st.tabs(["📋 Table", "✏️ Extract / Edit"])
+    vt, et = st.tabs(["TABLE VIEW","EXTRACT / EDIT"])
 
     with vt:
-        rows = [{
-            "ID": p["id"], "Year": p.get("year",""),
-            "Title": p["title"][:55]+"…" if len(p.get("title",""))>55 else p.get("title",""),
-            "Country": p.get("study_location") or "—",
-            "Method": p.get("methodology") or "—",
-            "Dataset": p.get("dataset") or "—",
-            "Key Findings": (p.get("key_findings") or "—")[:80]+"…" if len(p.get("key_findings",""))>80 else (p.get("key_findings") or "—"),
-            "Status": "✅" if p.get("key_findings") else "⏳"
-        } for p in ab]
+        rows = [{"ID":p["id"],"Year":p.get("year",""),
+            "Title":p["title"][:55]+"…" if len(p.get("title",""))>55 else p.get("title",""),
+            "Country":p.get("study_location") or "—","Method":p.get("methodology") or "—",
+            "Dataset":p.get("dataset") or "—",
+            "Key Findings":(p.get("key_findings") or "—")[:80]+"…" if len(p.get("key_findings",""))>80 else (p.get("key_findings") or "—"),
+            "Status":"✓" if p.get("key_findings") else "·"} for p in abs_inc]
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     with et:
-        opts = [f"{p['id']} — {p['title'][:60]}…" for p in ab]
-        sel  = st.selectbox("Select paper", opts)
-        p    = ab[opts.index(sel)]
-
-        st.markdown(f'<div class="paper-card"><div class="paper-title">{p.get("title","")}</div>'
-                    f'<div class="paper-meta">{p.get("authors","—")[:60]} · {p.get("year","?")} · {p.get("journal","—")}</div>'
-                    f'<div class="paper-abstract" style="margin-top:0.5rem;">{p.get("abstract","No abstract.")[:350]}…</div></div>',
-                    unsafe_allow_html=True)
+        opts = [f"{p['id']}  —  {p['title'][:60]}…" for p in abs_inc]
+        sel = st.selectbox("Select paper to extract", opts)
+        p = abs_inc[opts.index(sel)]
+        badge = DTL.get(p.get("doc_type",""), p.get("doc_type","?"))
+        st.markdown(f"""
+        <div class="pcard">
+          <span class="pcard-type">{badge}</span>
+          <div class="pcard-title">{p.get('title','')}</div>
+          <div class="pcard-meta">{p.get('authors','—')[:70]} · {p.get('year','?')} · {p.get('journal','—')}</div>
+          <div class="pcard-abstract" style="max-height:80px;">{p.get('abstract','No abstract available.')[:350]}…</div>
+        </div>""", unsafe_allow_html=True)
 
         with st.form(f"ex_{p['id']}"):
             c1,c2 = st.columns(2)
             with c1:
-                loc   = st.text_input("Study Location / Country", value=p.get("study_location",""))
-                meth  = st.text_input("Research Methodology",     value=p.get("methodology",""))
-                data  = st.text_input("Dataset / Data Source",    value=p.get("dataset",""))
+                loc  = st.text_input("Study Location / Country", value=p.get("study_location",""))
+                meth = st.text_input("Research Methodology",     value=p.get("methodology",""))
+                data = st.text_input("Dataset / Data Source",    value=p.get("dataset",""))
             with c2:
-                pol   = st.text_area("Policy Implications", value=p.get("policy_implication",""), height=100)
-                find  = st.text_area("Key Findings",        value=p.get("key_findings",""),       height=100)
-            if st.form_submit_button("💾 Save Extraction", use_container_width=True):
-                update_paper(p["id"],"study_location", loc)
-                update_paper(p["id"],"methodology",    meth)
-                update_paper(p["id"],"dataset",        data)
-                update_paper(p["id"],"policy_implication", pol)
-                update_paper(p["id"],"key_findings",   find)
-                st.success(f"✓ Saved {p['id']}")
-                st.rerun()
+                pol  = st.text_area("Policy Implications", value=p.get("policy_implication",""), height=90)
+                find = st.text_area("Key Findings",        value=p.get("key_findings",""),       height=90)
+            if st.form_submit_button("Save Extraction", use_container_width=True):
+                for f2,v in [("study_location",loc),("methodology",meth),("dataset",data),("policy_implication",pol),("key_findings",find)]:
+                    upd(p["id"],f2,v)
+                st.success(f"✓ Saved {p['id']}"); st.rerun()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 6 — QUALITY ASSESSMENT
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 6 — QUALITY ASSESSMENT
+# ══════════════════════════════════════════════════════════════
 elif tab == 6:
-    st.markdown("# Quality Assessment")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 07 — appraise methodological quality of included studies</div>', unsafe_allow_html=True)
+    pg("Module 07", "Quality ", "Assessment",
+       "Appraise methodological quality using a five-criterion rubric (max score 10).")
 
-    ex = papers_with_extraction()
-    if not ex:
-        st.warning("Complete Data Extraction first.")
-        st.stop()
+    ex_papers = ex()
+    if not ex_papers:
+        empty_st("No extracted papers yet", "Complete Data Extraction first"); st.stop()
 
-    n_h = len([p for p in ex if quality_score(p)>=8])
-    n_m = len([p for p in ex if 5<=quality_score(p)<8])
-    n_l = len([p for p in ex if quality_score(p)<5])
+    n_h = len([p for p in ex_papers if qs(p)>=8])
+    n_m = len([p for p in ex_papers if 5<=qs(p)<8])
+    n_l = len([p for p in ex_papers if qs(p)<5])
+    mc_row([("Assessable",len(ex_papers),""),("High Quality ≥8",n_h,"green"),("Medium 5–7",n_m,"gold"),("Low <5",n_l,"red")], 4)
 
-    c1,c2,c3,c4 = st.columns(4)
-    with c1: st.metric("Assessable",     len(ex))
-    with c2: st.metric("🟢 High (≥8)",   n_h)
-    with c3: st.metric("🟡 Medium (5-7)",n_m)
-    with c4: st.metric("🔴 Low (<5)",    n_l)
-
-    qv, qe = st.tabs(["📊 Quality Matrix", "✏️ Assess Paper"])
+    qv, qe = st.tabs(["QUALITY MATRIX","ASSESS PAPER"])
 
     with qv:
         rows = []
-        for p in ex:
-            qs = quality_score(p)
-            ql, _ = quality_label(qs)
-            rows.append({"ID": p["id"],
-                "Title": p["title"][:50]+"…" if len(p.get("title",""))>50 else p.get("title",""),
-                "Obj": p.get("qa_obj",0), "Method": p.get("qa_method",0),
-                "Data": p.get("qa_data",0), "Bias": p.get("qa_bias",0), "Relev.": p.get("qa_rel",0),
-                "Total /10": qs, "Category": ql})
+        for p in ex_papers:
+            s = qs(p); lbl, _ = ql(s)
+            rows.append({"ID":p["id"],"Title":p["title"][:50]+"…" if len(p.get("title",""))>50 else p.get("title",""),
+                "Obj":p.get("qa_obj",0),"Method":p.get("qa_method",0),"Data":p.get("qa_data",0),
+                "Bias":p.get("qa_bias",0),"Relev.":p.get("qa_rel",0),"Total/10":s,"Category":lbl})
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     with qe:
-        opts = [f"{p['id']} — {p['title'][:55]}…" for p in ex]
-        sel  = st.selectbox("Select paper", opts)
-        p    = ex[opts.index(sel)]
-        st.markdown(f'<div class="paper-card"><div class="paper-title">{p.get("title","")}</div>'
-                    f'<div class="paper-meta">{p.get("authors","—")[:60]} · {p.get("year","?")} · {p.get("journal","—")}</div></div>',
-                    unsafe_allow_html=True)
-        CRIT = [("qa_obj","1. Research objective clear"),("qa_method","2. Methodology quality"),
-                ("qa_data","3. Data reliability"),("qa_bias","4. Bias risk assessment"),
-                ("qa_rel","5. Relevance to research question")]
+        opts = [f"{p['id']}  —  {p['title'][:55]}…" for p in ex_papers]
+        sel = st.selectbox("Select paper", opts)
+        p = ex_papers[opts.index(sel)]
+        s = qs(p); lbl, pill_cls = ql(s)
+        st.markdown(f"""
+        <div class="pcard">
+          <div class="pcard-title">{p.get('title','')}</div>
+          <div class="pcard-meta">{p.get('authors','—')[:70]} · {p.get('year','?')} · {p.get('journal','—')}</div>
+          <div style="margin-top:.5rem;"><span class="pill {pill_cls}">{lbl}</span>&nbsp;
+          <span style="font-family:'Space Mono',monospace;font-size:.7rem;color:var(--snow2);">{s}/10</span></div>
+        </div>""", unsafe_allow_html=True)
+
+        CRIT = [("qa_obj","Research objective clarity"),("qa_method","Methodology quality"),
+                ("qa_data","Data reliability"),("qa_bias","Bias risk assessment"),("qa_rel","Relevance to research question")]
         with st.form(f"qa_{p['id']}"):
             scores = {}
-            for k, lbl in CRIT:
-                scores[k] = st.select_slider(lbl, options=[0,1,2], value=p.get(k,0),
-                    format_func=lambda x: ["0 — Not met","1 — Partially met","2 — Fully met"][x])
-            tot = sum(scores.values())
-            ql, _ = quality_label(tot)
-            st.markdown(f"**Total: {tot}/10 — {ql}**")
-            if st.form_submit_button("💾 Save Assessment", use_container_width=True):
-                for k,v in scores.items():
-                    update_paper(p["id"], k, v)
-                st.success(f"✓ {p['id']} = {tot}/10 ({ql})")
-                st.rerun()
+            for k, lbl2 in CRIT:
+                scores[k] = st.select_slider(lbl2, options=[0,1,2], value=p.get(k,0),
+                    format_func=lambda x: ["0 — Not met","1 — Partial","2 — Fully met"][x])
+            tot = sum(scores.values()); ql_lbl, _ = ql(tot)
+            st.markdown(f"**Score: {tot}/10 — {ql_lbl}**")
+            if st.form_submit_button("Save Assessment", use_container_width=True):
+                for k,v in scores.items(): upd(p["id"],k,v)
+                st.success(f"✓ Saved — {p['id']} = {tot}/10"); st.rerun()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 7 — SYNTHESIS
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 7 — SYNTHESIS
+# ══════════════════════════════════════════════════════════════
 elif tab == 7:
-    st.markdown("# Evidence Synthesis")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 08 — synthesise findings across included studies</div>', unsafe_allow_html=True)
+    pg("Module 08", "Evidence ", "Synthesis",
+       "Synthesise findings across included studies. Evidence table, methodology distribution, and geographic breakdown.")
 
-    ex = [p for p in papers_included_abstract() if p.get("key_findings")]
-    if not ex:
-        st.warning("Complete Data Extraction first.")
-        st.stop()
+    ex_papers = [p for p in ab() if p.get("key_findings")]
+    if not ex_papers:
+        empty_st("No extracted papers yet", "Complete Data Extraction first"); st.stop()
 
-    ev, mt, gt = st.tabs(["📋 Evidence Table","📊 Method Distribution","🌍 Geographic Distribution"])
+    ev, mt, gt = st.tabs(["EVIDENCE TABLE","METHOD DISTRIBUTION","GEOGRAPHIC DISTRIBUTION"])
 
     with ev:
         rows = []
-        for p in ex:
-            qs=quality_score(p); ql,_=quality_label(qs)
+        for p in ex_papers:
+            s=qs(p); lbl,_=ql(s)
             a = p.get("authors","")
             study = (a.split(";")[0].split(",")[0].strip() + f" et al. ({p.get('year','')})" if a else p["id"])
             rows.append({"Study":study,"Year":p.get("year",""),"Source":p.get("journal",""),
                 "Country":p.get("study_location","—"),"Method":p.get("methodology","—"),
-                "Dataset":p.get("dataset","—"),"Key Findings":p.get("key_findings","—"),
-                "Policy":p.get("policy_implication","—"),"Quality":f"{qs}/10 ({ql})"})
+                "Dataset":p.get("dataset","—"),
+                "Key Findings":(p.get("key_findings","—"))[:80]+"…" if len(p.get("key_findings",""))>80 else p.get("key_findings","—"),
+                "Policy":(p.get("policy_implication","—"))[:60]+"…" if len(p.get("policy_implication",""))>60 else p.get("policy_implication","—"),
+                "Quality":f"{s}/10 ({lbl})"})
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     with mt:
-        mc = {}
-        for p in ex:
+        mc2 = {}
+        for p in ex_papers:
             m = (p.get("methodology") or "Unknown").lower()
-            if any(x in m for x in ["regression","panel","ols","quantitative"]): cat="Quantitative/Regression"
-            elif any(x in m for x in ["meta","systematic","slr"]): cat="Meta-analysis/SLR"
-            elif any(x in m for x in ["machine learning","ml","ai","neural","random forest"]): cat="ML/AI"
+            if any(x in m for x in ["regression","panel","ols","quantitative"]): cat="Quantitative"
+            elif any(x in m for x in ["meta","systematic","slr"]): cat="Meta-analysis / SLR"
+            elif any(x in m for x in ["machine learning","ml","ai","neural"]): cat="ML / AI"
             elif any(x in m for x in ["quasi","experiment","rct"]): cat="Quasi-experimental"
             elif any(x in m for x in ["qualitative","interview","case"]): cat="Qualitative"
             elif any(x in m for x in ["mixed"]): cat="Mixed Methods"
             elif any(x in m for x in ["review","literature","narrative"]): cat="Literature Review"
-            else: cat="Other"
-            mc[cat] = mc.get(cat,0)+1
-        if mc: st.bar_chart(pd.DataFrame(list(mc.items()),columns=["Method","Count"]).set_index("Method"), color="#f0a500")
+            else: cat="Other / Not specified"
+            mc2[cat] = mc2.get(cat,0)+1
+        if mc2: st.bar_chart(pd.DataFrame(list(mc2.items()),columns=["Method","Count"]).set_index("Method"))
+        else: st.info("Fill in methodology field in Data Extraction to see distribution.")
 
     with gt:
         gc = {}
-        for p in ex:
+        for p in ex_papers:
             loc = (p.get("study_location") or "Not specified").strip() or "Not specified"
             gc[loc] = gc.get(loc,0)+1
-        if gc: st.bar_chart(pd.DataFrame(list(gc.items()),columns=["Location","Count"]).set_index("Location"), color="#58a6ff")
+        if gc: st.bar_chart(pd.DataFrame(list(gc.items()),columns=["Location","Count"]).set_index("Location"))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 8 — PRISMA
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 8 — PRISMA
+# ══════════════════════════════════════════════════════════════
 elif tab == 8:
-    st.markdown("# PRISMA Flow Diagram")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 09 — PRISMA 2020</div>', unsafe_allow_html=True)
+    pg("Module 09", "PRISMA ", "Flow Diagram",
+       "Preferred Reporting Items for Systematic Reviews and Meta-Analyses (PRISMA 2020). All counts auto-calculated.")
 
     if not papers:
-        st.markdown(NO_DATA_HTML, unsafe_allow_html=True)
-        st.stop()
+        empty_st(); st.stop()
 
-    n_dup      = len(st.session_state.dup_results)
-    n_id       = n_total + n_dup
-    n_scr      = n_total
-    n_te       = len([p for p in papers if p.get("title_decision")=="exclude"])
-    n_tm       = len([p for p in papers if p.get("title_decision")=="maybe"])
-    n_ae       = len(papers_included_title())
-    n_axe      = len([p for p in papers if p.get("abstract_decision")=="exclude"])
-    n_inc      = len(papers_included_abstract())
+    n_dup  = len(st.session_state.dup_results)
+    n_id   = n_total + n_dup
+    n_scr  = n_total
+    n_te   = len([p for p in papers if p.get("title_decision")=="exclude"])
+    n_tm   = len([p for p in papers if p.get("title_decision")=="maybe"])
+    n_ae   = len(ti())
+    n_axe  = len([p for p in papers if p.get("abstract_decision")=="exclude"])
+    n_inc  = len(ab())
 
-    st.success("✓ Counts auto-calculated from your screening decisions.")
-
-    cd, ct = st.columns([1,1])
+    cd, ct = st.columns([1.1, 1], gap="large")
 
     with cd:
+        sh("Flow Diagram", "◈ ")
         st.markdown(f"""
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:1rem 0;font-family:'DM Sans',sans-serif;">
-            <div style="background:#1c2333;border:1.5px solid #58a6ff;border-radius:6px;padding:.75rem 1.5rem;text-align:center;min-width:260px;">
-                <div style="font-family:IBM Plex Mono,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:#565f73;margin-bottom:.2rem;">Identification</div>
-                <div style="font-family:IBM Plex Mono,monospace;font-size:1.6rem;font-weight:600;color:#e6edf3;">{n_id}</div>
-                <div style="font-size:.72rem;color:#8b949e;margin-top:.15rem;">Records identified from databases</div>
+        <div class="prisma-flow">
+          <div class="prisma-box blue-acc">
+            <div class="prisma-lbl">Identification</div>
+            <div class="prisma-n">{n_id}</div>
+            <div class="prisma-sub">Records identified from databases</div>
+          </div>
+          <div class="prisma-arrow">↓</div>
+
+          <div class="prisma-row">
+            <div class="prisma-box blue-acc">
+              <div class="prisma-lbl">After Deduplication</div>
+              <div class="prisma-n">{n_scr}</div>
+              <div class="prisma-sub">Unique records screened</div>
             </div>
-            <div style="font-size:1.4rem;color:#374166;">↓</div>
-            <div style="display:flex;align-items:center;gap:1rem;">
-                <div style="background:#1c2333;border:1.5px solid #58a6ff;border-radius:6px;padding:.75rem 1.5rem;text-align:center;min-width:260px;">
-                    <div style="font-family:IBM Plex Mono,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:#565f73;margin-bottom:.2rem;">After Deduplication</div>
-                    <div style="font-family:IBM Plex Mono,monospace;font-size:1.6rem;font-weight:600;color:#e6edf3;">{n_scr}</div>
-                    <div style="font-size:.72rem;color:#8b949e;">Records after removing duplicates</div>
-                </div>
-                <div style="width:2rem;height:1px;background:#374166;"></div>
-                <div style="background:rgba(248,81,73,.07);border:1px solid rgba(248,81,73,.2);border-radius:6px;padding:.5rem 1rem;font-size:.7rem;color:#f85149;font-family:IBM Plex Mono,monospace;text-align:center;min-width:140px;">{n_dup} duplicate(s)<br/>removed</div>
+            <div class="prisma-line"></div>
+            <div class="prisma-branch">{n_dup} duplicate(s)<br/>removed</div>
+          </div>
+          <div class="prisma-arrow">↓</div>
+
+          <div class="prisma-row">
+            <div class="prisma-box gold-acc">
+              <div class="prisma-lbl">Title Screening</div>
+              <div class="prisma-n">{n_scr}</div>
+              <div class="prisma-sub">Screened by title</div>
             </div>
-            <div style="font-size:1.4rem;color:#374166;">↓</div>
-            <div style="display:flex;align-items:center;gap:1rem;">
-                <div style="background:#1c2333;border:1.5px solid #f0a500;border-radius:6px;padding:.75rem 1.5rem;text-align:center;min-width:260px;">
-                    <div style="font-family:IBM Plex Mono,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:#565f73;margin-bottom:.2rem;">Title Screening</div>
-                    <div style="font-family:IBM Plex Mono,monospace;font-size:1.6rem;font-weight:600;color:#e6edf3;">{n_scr}</div>
-                    <div style="font-size:.72rem;color:#8b949e;">Records screened by title</div>
-                </div>
-                <div style="width:2rem;height:1px;background:#374166;"></div>
-                <div style="background:rgba(248,81,73,.07);border:1px solid rgba(248,81,73,.2);border-radius:6px;padding:.5rem 1rem;font-size:.7rem;color:#f85149;font-family:IBM Plex Mono,monospace;text-align:center;min-width:140px;">{n_te} excluded<br/>{n_tm} maybe</div>
+            <div class="prisma-line"></div>
+            <div class="prisma-branch">{n_te} excluded<br/>{n_tm} maybe</div>
+          </div>
+          <div class="prisma-arrow">↓</div>
+
+          <div class="prisma-row">
+            <div class="prisma-box purple-acc">
+              <div class="prisma-lbl">Abstract Screening</div>
+              <div class="prisma-n">{n_ae}</div>
+              <div class="prisma-sub">Assessed for eligibility</div>
             </div>
-            <div style="font-size:1.4rem;color:#374166;">↓</div>
-            <div style="display:flex;align-items:center;gap:1rem;">
-                <div style="background:#1c2333;border:1.5px solid #bc8cff;border-radius:6px;padding:.75rem 1.5rem;text-align:center;min-width:260px;">
-                    <div style="font-family:IBM Plex Mono,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:#565f73;margin-bottom:.2rem;">Abstract Screening</div>
-                    <div style="font-family:IBM Plex Mono,monospace;font-size:1.6rem;font-weight:600;color:#e6edf3;">{n_ae}</div>
-                    <div style="font-size:.72rem;color:#8b949e;">Records assessed for eligibility</div>
-                </div>
-                <div style="width:2rem;height:1px;background:#374166;"></div>
-                <div style="background:rgba(248,81,73,.07);border:1px solid rgba(248,81,73,.2);border-radius:6px;padding:.5rem 1rem;font-size:.7rem;color:#f85149;font-family:IBM Plex Mono,monospace;text-align:center;min-width:140px;">{n_axe} excluded<br/>(abstract)</div>
-            </div>
-            <div style="font-size:1.4rem;color:#374166;">↓</div>
-            <div style="background:#1c2333;border:1.5px solid #3fb950;border-radius:6px;padding:.75rem 1.5rem;text-align:center;min-width:260px;">
-                <div style="font-family:IBM Plex Mono,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:#565f73;margin-bottom:.2rem;">Included in Synthesis</div>
-                <div style="font-family:IBM Plex Mono,monospace;font-size:1.6rem;font-weight:600;color:#e6edf3;">{n_inc}</div>
-                <div style="font-size:.72rem;color:#8b949e;">Studies included in review</div>
-            </div>
+            <div class="prisma-line"></div>
+            <div class="prisma-branch">{n_axe} excluded<br/>(abstract)</div>
+          </div>
+          <div class="prisma-arrow">↓</div>
+
+          <div class="prisma-box green-acc">
+            <div class="prisma-lbl">Included in Synthesis</div>
+            <div class="prisma-n">{n_inc}</div>
+            <div class="prisma-sub">Studies included in review</div>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
     with ct:
-        st.markdown('<div class="section-label">Count Table</div>', unsafe_allow_html=True)
+        sh("Count Table", "◈ ")
         pf = pd.DataFrame([
             {"Stage":"Records identified","n":n_id},
             {"Stage":"Duplicates removed","n":n_dup},
             {"Stage":"After deduplication","n":n_scr},
-            {"Stage":"Title screening","n":n_scr},
-            {"Stage":"Excluded (title)","n":n_te},
-            {"Stage":"Maybe (title)","n":n_tm},
-            {"Stage":"Abstract eligibility","n":n_ae},
-            {"Stage":"Excluded (abstract)","n":n_axe},
+            {"Stage":"Title excluded","n":n_te},
+            {"Stage":"Title maybe","n":n_tm},
+            {"Stage":"Abstract eligible","n":n_ae},
+            {"Stage":"Abstract excluded","n":n_axe},
             {"Stage":"Included in synthesis","n":n_inc},
         ])
         st.dataframe(pf, use_container_width=True, hide_index=True)
-        st.download_button("📥 PRISMA Table (CSV)", pf.to_csv(index=False), "prisma_counts.csv","text/csv",use_container_width=True)
+        st.download_button("Download PRISMA Table", pf.to_csv(index=False), "prisma.csv","text/csv",use_container_width=True)
 
         reasons = {}
         for p in papers:
             r = p.get("exclusion_reason","")
             if r: reasons[r] = reasons.get(r,0)+1
         if reasons:
-            st.markdown('<div class="section-label" style="margin-top:1rem;">Exclusion Reasons</div>', unsafe_allow_html=True)
+            st.markdown("&nbsp;", unsafe_allow_html=True)
+            sh("Exclusion Reasons", "◈ ")
             st.dataframe(pd.DataFrame(list(reasons.items()),columns=["Reason","n"]).sort_values("n",ascending=False),
                          use_container_width=True, hide_index=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 9 — EXPORT
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# PAGE 9 — EXPORT
+# ══════════════════════════════════════════════════════════════
 elif tab == 9:
-    st.markdown("# Export Results")
-    st.markdown('<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#565f73;margin-bottom:1.5rem;">module 10 — export for publication (Q1/Q2 journal standard)</div>', unsafe_allow_html=True)
+    pg("Module 10", "Export ", "Results",
+       "Export all review data for publication. PRISMA-compliant audit trail included.")
 
     if not papers:
-        st.markdown(NO_DATA_HTML, unsafe_allow_html=True)
-        st.stop()
+        empty_st(); st.stop()
 
-    ab = papers_included_abstract()
-    ex = papers_with_extraction()
+    abs_inc = ab()
+    ex_papers = ex()
 
-    c1,c2,c3,c4 = st.columns(4)
-    with c1: st.metric("Total Records",   len(papers))
-    with c2: st.metric("Title Included",  len(papers_included_title()))
-    with c3: st.metric("Final Included",  len(ab))
-    with c4: st.metric("Data Extracted",  len(ex))
+    mc_row([("Total Records",len(papers),""),("Title Included",len(ti()),""),
+            ("Final Included",len(abs_inc),"gold"),("Data Extracted",len(ex_papers),"green")], 4)
 
-    st.markdown("---")
-    cl, cr = st.columns(2)
+    cl, cr = st.columns(2, gap="large")
 
     with cl:
-        st.markdown('<div class="section-label">Data Exports</div>', unsafe_allow_html=True)
+        sh("Data Exports", "◈ ")
 
-        # Screening log
-        scr = pd.DataFrame([{"paper_id":p["id"],"doc_type":p.get("doc_type",""),
+        scr = pd.DataFrame([{"id":p["id"],"doc_type":p.get("doc_type",""),
             "title":p.get("title",""),"authors":p.get("authors",""),"year":p.get("year",""),
             "journal":p.get("journal",""),"doi":p.get("doi",""),
             "title_decision":p.get("title_decision") or "pending",
             "abstract_decision":p.get("abstract_decision") or "pending",
             "exclusion_reason":p.get("exclusion_reason","")} for p in papers])
-        st.download_button("📥 Screening Decisions Log (.csv)", scr.to_csv(index=False),
-                           "screening_decisions.csv","text/csv",use_container_width=True)
+        st.download_button("Screening Decisions (.csv)", scr.to_csv(index=False),"screening.csv","text/csv",use_container_width=True)
 
-        if ex:
-            ext = pd.DataFrame([{"paper_id":p["id"],"title":p.get("title",""),
-                "authors":p.get("authors",""),"year":p.get("year",""),"journal":p.get("journal",""),
-                "doi":p.get("doi",""),"study_location":p.get("study_location",""),
-                "methodology":p.get("methodology",""),"dataset":p.get("dataset",""),
-                "policy_implication":p.get("policy_implication",""),"key_findings":p.get("key_findings",""),
-                "quality_score":quality_score(p),"quality_category":quality_label(quality_score(p))[0]} for p in ex])
-            st.download_button("📥 Extraction Table (.csv)", ext.to_csv(index=False),
-                               "extraction_table.csv","text/csv",use_container_width=True)
+        if ex_papers:
+            ext = pd.DataFrame([{"id":p["id"],"title":p.get("title",""),"authors":p.get("authors",""),
+                "year":p.get("year",""),"journal":p.get("journal",""),"doi":p.get("doi",""),
+                "study_location":p.get("study_location",""),"methodology":p.get("methodology",""),
+                "dataset":p.get("dataset",""),"policy_implication":p.get("policy_implication",""),
+                "key_findings":p.get("key_findings",""),"quality":qs(p),"category":ql(qs(p))[0]} for p in ex_papers])
+            st.download_button("Extraction Table (.csv)", ext.to_csv(index=False),"extraction.csv","text/csv",use_container_width=True)
 
-            qa = pd.DataFrame([{"paper_id":p["id"],"title":p.get("title",""),
-                "qa_obj":p.get("qa_obj",0),"qa_method":p.get("qa_method",0),
-                "qa_data":p.get("qa_data",0),"qa_bias":p.get("qa_bias",0),
-                "qa_rel":p.get("qa_rel",0),"total":quality_score(p),
-                "category":quality_label(quality_score(p))[0]} for p in ex])
-            st.download_button("📥 Quality Assessment Matrix (.csv)", qa.to_csv(index=False),
-                               "quality_assessment.csv","text/csv",use_container_width=True)
+            qa = pd.DataFrame([{"id":p["id"],"title":p.get("title",""),"qa_obj":p.get("qa_obj",0),
+                "qa_method":p.get("qa_method",0),"qa_data":p.get("qa_data",0),"qa_bias":p.get("qa_bias",0),
+                "qa_rel":p.get("qa_rel",0),"total":qs(p),"category":ql(qs(p))[0]} for p in ex_papers])
+            st.download_button("Quality Matrix (.csv)", qa.to_csv(index=False),"quality.csv","text/csv",use_container_width=True)
 
-        # BibTeX export
         bib = []
-        for p in ab:
+        for p in abs_inc:
             et = {"JOUR":"article","RPRT":"techreport","BOOK":"book","CONF":"inproceedings"}.get(p.get("doc_type","JOUR"),"misc")
-            bib.append(f"@{et}{{{p['id']},")
-            if p.get("author"):   bib.append(f"  author  = {{{p['authors']}}},")
-            if p.get("title"):    bib.append(f"  title   = {{{p['title']}}},")
-            if p.get("journal"):  bib.append(f"  journal = {{{p['journal']}}},")
-            if p.get("year"):     bib.append(f"  year    = {{{p['year']}}},")
-            if p.get("doi"):      bib.append(f"  doi     = {{{p['doi']}}},")
-            if p.get("url"):      bib.append(f"  url     = {{{p['url']}}},")
-            bib.append("}\n")
-        st.download_button("📥 Bibliography — Included (.bib)", "\n".join(bib),
-                           "included_studies.bib","text/plain",use_container_width=True)
-
-        st.download_button("📥 Full Review Data (.json)",
-                           json.dumps(st.session_state.papers, indent=2, default=str),
-                           "slr_full_data.json","application/json",use_container_width=True)
+            bib += [f"@{et}{{{p['id']},",f"  title   = {{{p.get('title','')}}}," if p.get("title") else "",
+                    f"  author  = {{{p.get('authors','')}}}," if p.get("authors") else "",
+                    f"  journal = {{{p.get('journal','')}}}," if p.get("journal") else "",
+                    f"  year    = {{{p.get('year','')}}}," if p.get("year") else "",
+                    f"  doi     = {{{p.get('doi','')}}}," if p.get("doi") else "","}\n"]
+        st.download_button("Bibliography (.bib)", "\n".join(bib),"included.bib","text/plain",use_container_width=True)
+        st.download_button("Full Review Data (.json)", json.dumps(st.session_state.papers,indent=2,default=str),"full_data.json","application/json",use_container_width=True)
 
     with cr:
-        st.markdown('<div class="section-label">Methodology Draft</div>', unsafe_allow_html=True)
+        sh("Methodology Section Draft", "◈ ")
         method_text = f"""METHODOLOGY SECTION DRAFT
 Generated by SLR·Studio — Bahas Kebijakan
 {datetime.now().strftime('%Y-%m-%d %H:%M')}
@@ -1191,58 +1410,46 @@ Generated by SLR·Studio — Bahas Kebijakan
 2. METHODOLOGY
 
 2.1 Search Strategy
-A systematic search was conducted in {len(st.session_state.import_log)} database(s):
+Systematic search in {len(st.session_state.import_log)} database(s):
 {", ".join([l.get("source","") for l in st.session_state.import_log]) or "Not recorded"}.
-The initial search yielded {n_total + len(st.session_state.dup_results)} records in total.
+Initial search: {n_total + len(st.session_state.dup_results)} records.
 
 2.2 Study Selection (PRISMA 2020)
 After deduplication ({n_total} unique records), titles were screened.
-Papers passing title screening (n={len(papers_included_title())}) were assessed
-by abstract. A final {len(ab)} studies met inclusion criteria.
+Title-passed (n={len(ti())}), abstract-assessed (n={len(ab())}).
+Final included: {len(abs_inc)} studies.
 
 2.3 Data Extraction
-Extracted fields: study location, methodology, data source,
-key findings, and policy implications.
+Fields: study location, methodology, data source,
+key findings, policy implications.
 
 2.4 Quality Assessment
-Five-criterion rubric (0–2 per criterion; max = 10):
-  (1) Research objective clarity
-  (2) Methodology quality
-  (3) Data reliability
-  (4) Bias risk assessment
-  (5) Relevance to research question
-High ≥8 · Medium 5-7 · Low <5
+Five-criterion rubric (0–2 each; max 10):
+(1) Research objective clarity
+(2) Methodology quality
+(3) Data reliability
+(4) Bias risk assessment
+(5) Relevance to research question
+High ≥8 · Medium 5–7 · Low <5
 
 2.5 Evidence Synthesis
-Narrative synthesis due to heterogeneity across study designs.
+Narrative synthesis (heterogeneity across designs).
 
-Reference:
-Page MJ et al. BMJ 2021;372:n71. doi:10.1136/bmj.n71
+Reference: Page MJ et al. BMJ 2021;372:n71.
 ==========================================================
-Auto-generated. Adapt before submission.
+Auto-generated — adapt before submission.
 """
-        st.download_button("📥 Methodology Draft (.txt)", method_text,
-                           "methodology_draft.txt","text/plain",use_container_width=True)
+        st.download_button("Methodology Draft (.txt)", method_text,"methodology.txt","text/plain",use_container_width=True)
 
-        st.markdown("---")
-        st.markdown('<div class="section-label">Summary</div>', unsafe_allow_html=True)
-        st.markdown(f"""
-| Stage | n |
-|-------|---|
-| Total records | {len(papers)} |
-| Title included | {len(papers_included_title())} |
-| Final included | {len(ab)} |
-| Data extracted | {len(ex)} |
-| Quality assessed | {len([p for p in ex if quality_score(p)>0])} |
-| High quality | {len([p for p in ex if quality_score(p)>=8])} |
-| Medium quality | {len([p for p in ex if 5<=quality_score(p)<8])} |
-        """)
-        st.caption("Bahas Kebijakan (2025). *SLR·Studio* [Software]. bahaskebijakan.id")
-
-
-# ── FOOTER ─────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="footer-brand">
-    SLR·Studio &nbsp;·&nbsp; developed by <span>Bahas Kebijakan</span> &nbsp;·&nbsp; PRISMA 2020 Compliant
-</div>
-""", unsafe_allow_html=True)
+        st.markdown("&nbsp;", unsafe_allow_html=True)
+        sh("Review Summary", "◈ ")
+        sum_df = pd.DataFrame([
+            {"Stage":"Total records","n":len(papers)},
+            {"Stage":"Title included","n":len(ti())},
+            {"Stage":"Final included","n":len(abs_inc)},
+            {"Stage":"Data extracted","n":len(ex_papers)},
+            {"Stage":"High quality (≥8)","n":len([p for p in ex_papers if qs(p)>=8])},
+            {"Stage":"Medium quality","n":len([p for p in ex_papers if 5<=qs(p)<8])},
+        ])
+        st.dataframe(sum_df, use_container_width=True, hide_index=True)
+        st.caption("Bahas Kebijakan (2025). SLR·Studio. bahaskebijakan.id")
